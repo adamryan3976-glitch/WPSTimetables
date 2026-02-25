@@ -65,6 +65,7 @@
         const ClockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>;
         const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
         const StarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
+        const CalendarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>;
 
         const API_URL = "https://script.google.com/macros/s/AKfycby9Enax-ekH4DBbxAvTos0SRiAYmy2lM62fnOdwn_tUsq-9u52U4FALEq2TiXr8flVH/exec";
 
@@ -73,6 +74,7 @@
             const [sheetIds, setSheetIds] = useState([]);
             const [selectedSheetId, setSelectedSheetId] = useState("");
             const [selectedDay, setSelectedDay] = useState("1");
+            const [currentCycleDay, setCurrentCycleDay] = useState("N/A");
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
 
@@ -82,12 +84,12 @@
                     .then(json => {
                         setData(json);
                         
-                        const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG"];
+                        // Exclusion list
+                        const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days"];
                         
                         const ids = Object.keys(json)
                             .filter(id => !exclude.includes(id))
                             .sort((a, b) => {
-                                // Force PREPS to the top
                                 if (a === "PREPS") return -1;
                                 if (b === "PREPS") return 1;
                                 return a.localeCompare(b);
@@ -95,6 +97,44 @@
                         
                         setSheetIds(ids);
                         if (ids.length > 0) setSelectedSheetId(ids[0]);
+
+                        // Logic to find current cycle day
+                        if (json["Cycle Days"]) {
+                            const today = new Date();
+                            // Format: "YYYY-MM-DD" or similar to match how Google Sheets might send dates
+                            // Usually Apps Script returns dates as ISO strings
+                            const todayStr = today.toISOString().split('T')[0];
+                            const cycleData = json["Cycle Days"].schedule; 
+                            
+                            // Note: We assume 'Cycle Days' sheet structure follows your other sheets
+                            // but usually for a lookup sheet like this, we iterate the data rows.
+                            // If it's formatted like a schedule, we look for today's entry.
+                            
+                            // Iterate through the keys in the Cycle Days schedule (which are Days 1-5)
+                            // Since Cycle Days is a list of dates in Col A and Cycle Day in Col B, 
+                            // we need to find the specific entry. 
+                            
+                            // Assuming the Apps Script returns raw values for sheets that don't match the 
+                            // 1-10 period format perfectly, we look for a match.
+                            let foundDay = "N/A";
+                            const cycleSheet = json["Cycle Days"].raw || [];
+                            
+                            cycleSheet.forEach(row => {
+                                if (row[0]) {
+                                    const rowDate = new Date(row[0]).toISOString().split('T')[0];
+                                    if (rowDate === todayStr) {
+                                        foundDay = row[1];
+                                    }
+                                }
+                            });
+                            setCurrentCycleDay(foundDay);
+                            
+                            // Auto-set the selected day to today's cycle day if valid
+                            if (foundDay !== "N/A" && ["1","2","3","4","5"].includes(foundDay.toString())) {
+                                setSelectedDay(foundDay.toString());
+                            }
+                        }
+
                         setLoading(false);
                     })
                     .catch(err => {
@@ -102,6 +142,12 @@
                         setLoading(false);
                     });
             }, []);
+
+            const todayFormatted = new Date().toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'short', 
+                day: 'numeric' 
+            });
 
             if (loading) return (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-white">
@@ -126,7 +172,19 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen flex flex-col">
-                    {/* Header */}
+                    {/* Top Date Header */}
+                    <div className="bg-wps-deep px-6 py-2 flex justify-between items-center text-white/90">
+                        <div className="flex items-center gap-2">
+                            <CalendarIcon />
+                            <span className="text-[10px] font-black uppercase tracking-wider">{todayFormatted}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-white/10 px-3 py-0.5 rounded-full border border-white/10">
+                            <span className="text-[9px] font-black uppercase opacity-60">Cycle Day</span>
+                            <span className="text-xs font-black text-wps-bright">{currentCycleDay}</span>
+                        </div>
+                    </div>
+
+                    {/* Navigation Header */}
                     <nav className="glass sticky top-0 z-20 px-4 py-3 border-b border-slate-200/50 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <img src="WPSLogo.jpg" className="w-10 h-10 object-contain" alt="WPS" />
@@ -184,7 +242,6 @@
                         {/* Schedule */}
                         <div className="space-y-2.5">
                             {schedule.map((subject, i) => {
-                                // For the PREPS view, we treat the field as a list of names, so it's only "free" if it's empty
                                 const isFree = !isPrepsView && (subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free") || !subject);
                                 const isEmpty = isPrepsView && !subject;
 
