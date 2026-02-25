@@ -98,32 +98,49 @@
                         setSheetIds(ids);
                         if (ids.length > 0) setSelectedSheetId(ids[0]);
 
-                        // Logic to find current cycle day
+                        // Improved logic to find current cycle day
                         if (json["Cycle Days"]) {
-                            const today = new Date();
-                            // Use locale string for comparison to avoid timezone shifts
-                            const todayComparison = today.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+                            const now = new Date();
+                            const tYear = now.getFullYear();
+                            const tMonth = now.getMonth();
+                            const tDate = now.getDate();
                             
                             let foundDay = "N/A";
-                            const cycleSheet = json["Cycle Days"].raw || [];
+                            const cycleSheetData = json["Cycle Days"].raw || [];
                             
-                            cycleSheet.forEach(row => {
+                            for (const row of cycleSheetData) {
                                 if (row[0]) {
-                                    const rowDate = new Date(row[0]);
-                                    // Check if date is valid
-                                    if (!isNaN(rowDate.getTime())) {
-                                        const rowDateStr = rowDate.toLocaleDateString('en-CA');
-                                        if (rowDateStr === todayComparison) {
+                                    let cellValue = row[0];
+                                    
+                                    // Handle string dates like "2/25/2026" or "2026-02-25"
+                                    // We create a date object then extract parts to avoid timezone shifting
+                                    let d = new Date(cellValue);
+                                    
+                                    // If cell is a string like "2/25/2026", JS might treat it as local.
+                                    // If it's "2026-02-25", JS treats it as UTC.
+                                    // To fix this, if we see a dash, we know it's ISO and we should fix the offset
+                                    if (typeof cellValue === 'string' && cellValue.includes('-')) {
+                                        // Force it to be treated as local time
+                                        d = new Date(cellValue.replace(/-/g, '\/'));
+                                    }
+
+                                    if (d && !isNaN(d.getTime())) {
+                                        if (
+                                            d.getFullYear() === tYear &&
+                                            d.getMonth() === tMonth &&
+                                            d.getDate() === tDate
+                                        ) {
                                             foundDay = row[1];
+                                            break;
                                         }
                                     }
                                 }
-                            });
+                            }
                             
                             setCurrentCycleDay(foundDay);
                             
-                            // Auto-set the selected day to today's cycle day if valid (1-5)
-                            const cleanDay = foundDay?.toString();
+                            // Auto-set the selected day if valid
+                            const cleanDay = foundDay?.toString().trim();
                             if (cleanDay && ["1","2","3","4","5"].includes(cleanDay)) {
                                 setSelectedDay(cleanDay);
                             }
@@ -187,7 +204,7 @@
                                 <span className="font-bold tracking-[0.2em] text-[8px] leading-none text-wps-slate uppercase">Public School</span>
                             </div>
                         </div>
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                        <div className="flex bg-slate-100 p-1 rounded-xl shadow-inner">
                             {["1", "2", "3", "4", "5"].map(d => (
                                 <button 
                                     key={d} 
@@ -219,7 +236,11 @@
                                         : "bg-slate-50 text-wps-deep focus:ring-wps-bright/20"
                                     }`}
                                 >
-                                    {sheetIds.map(id => <option key={id} value={id}>{data[id].displayName || id}</option>)}
+                                    {sheetIds.map(id => (
+                                        <option key={id} value={id}>
+                                            {id === "PREPS" ? "PREPS (All Staff)" : (data[id].displayName || id)}
+                                        </option>
+                                    ))}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-wps-deep/30 pointer-events-none"><ChevronDownIcon /></div>
                             </div>
@@ -235,8 +256,8 @@
 
                         {/* Schedule */}
                         <div className="space-y-2.5">
-                            {schedule.map((subject, i) => {
-                                const isFree = !isPrepsView && (subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free") || !subject);
+                            {schedule.length > 0 ? schedule.map((subject, i) => {
+                                const isFree = !isPrepsView && (subject?.toLowerCase().includes("prep") || subject?.toLowerCase().includes("free") || !subject);
                                 const isEmpty = isPrepsView && !subject;
 
                                 return (
@@ -261,7 +282,9 @@
                                         {(!isFree && !isEmpty) && <div className="text-wps-bright mt-1.5"><ClockIcon /></div>}
                                     </div>
                                 );
-                            })}
+                            }) : (
+                                <div className="text-center py-10 opacity-30 italic text-sm">No periods found for this day.</div>
+                            )}
                         </div>
                     </main>
 
