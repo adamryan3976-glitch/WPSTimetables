@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>WPS Timetables</title>
+    <title>WPS Portal</title>
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="WPS Portal">
     <link rel="apple-touch-icon" href="WPSLogo.jpg">
     <link rel="icon" type="image/jpeg" href="WPSLogo.jpg">
 
@@ -20,9 +19,7 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: {
-                        wps: { deep: '#005496', bright: '#00D1FF', gold: '#C5A059', slate: '#53565A' }
-                    }
+                    colors: { wps: { deep: '#005496', bright: '#00D1FF', slate: '#53565A' } }
                 }
             }
         }
@@ -30,10 +27,8 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f8fafc; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #f7f7f7 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
-        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        .no-select { -webkit-user-select: none; user-select: none; }
     </style>
 </head>
 <body>
@@ -43,7 +38,7 @@
         const { useState, useEffect, useMemo } = React;
 
         const API_URL = "https://script.google.com/macros/s/AKfycby9Enax-ekH4DBbxAvTos0SRiAYmy2lM62fnOdwn_tUsq-9u52U4FALEq2TiXr8flVH/exec";
-        const STORAGE_KEY = "wps_data_cache";
+        const STORAGE_KEY = "wps_v5_cache";
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -52,35 +47,25 @@
             });
             const [selectedSheetId, setSelectedSheetId] = useState("");
             const [selectedDay, setSelectedDay] = useState("1");
-            const [loading, setLoading] = useState(!data);
-            const [error, setError] = useState(null);
+            const [isSyncing, setIsSyncing] = useState(false);
 
-            // Robust Date Comparison
+            // DIRECT LOOKUP FROM YOUR NEW D1 FORMULA
             const currentCycleDay = useMemo(() => {
-                if (!data || !data["Cycle Days"]) return "N/A";
+                if (!data || !data["Cycle Days"] || !data["Cycle Days"].raw) return "N/A";
                 
-                const now = new Date();
-                const todayStr = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+                // Row 0 is row 1 in Sheets, Column 3 is column D
+                const rawRows = data["Cycle Days"].raw;
+                const d1Value = rawRows[0]?.[3]; // Accessing D1 (Cell D1 is row 0, index 3)
                 
-                const cycleRows = data["Cycle Days"].raw || [];
-                for (const row of cycleRows) {
-                    if (!row[0]) continue;
-                    
-                    const d = new Date(row[0]);
-                    if (isNaN(d.getTime())) continue;
-
-                    // Match based on local calendar parts to bypass timezone shifts
-                    const rowStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-                    const rowStrUTC = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
-
-                    if (rowStr === todayStr || rowStrUTC === todayStr) {
-                        return row[1];
-                    }
+                if (d1Value !== undefined && d1Value !== null && d1Value !== "") {
+                    return d1Value.toString();
                 }
+
+                // Fallback to original search logic if D1 is empty
                 return "N/A";
             }, [data]);
 
-            // Sync Day selection with Cycle Day on initial load
+            // Auto-sync selected day to the detected Cycle Day
             useEffect(() => {
                 const day = currentCycleDay?.toString().trim();
                 if (day && ["1", "2", "3", "4", "5"].includes(day)) {
@@ -89,19 +74,20 @@
             }, [currentCycleDay]);
 
             useEffect(() => {
-                const fetchData = async () => {
+                const sync = async () => {
+                    setIsSyncing(true);
                     try {
                         const res = await fetch(API_URL);
                         const json = await res.json();
                         setData(json);
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
-                        setLoading(false);
-                    } catch (err) {
-                        if (!data) setError("Failed to sync.");
-                        setLoading(false);
+                    } catch (e) {
+                        console.error("Sync failed", e);
+                    } finally {
+                        setIsSyncing(false);
                     }
                 };
-                fetchData();
+                sync();
             }, []);
 
             const sheetIds = useMemo(() => {
@@ -118,89 +104,84 @@
                 }
             }, [sheetIds]);
 
-            if (loading) return (
-                <div className="flex flex-col items-center justify-center min-h-screen bg-white">
-                    <img src="WPSLogo.jpg" className="w-20 h-20 mb-6 animate-pulse" alt="Logo" />
-                    <p className="text-wps-deep font-black text-[10px] uppercase tracking-widest">Loading Schedule...</p>
+            if (!data) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-white">
+                    <img src="WPSLogo.jpg" className="w-16 h-16 animate-pulse" />
+                    <p className="mt-4 font-black text-xs text-wps-deep uppercase tracking-widest">Waking up...</p>
                 </div>
             );
 
-            const teacherData = data?.[selectedSheetId];
-            const schedule = teacherData?.schedule?.[selectedDay] || [];
-            const isPrepsView = selectedSheetId === "PREPS";
+            const schedule = data[selectedSheetId]?.schedule?.[selectedDay] || [];
 
             return (
-                <div className="max-w-md mx-auto min-h-screen flex flex-col pb-10">
-                    <header className="bg-wps-deep text-white p-4 pb-2">
-                        <div className="flex justify-between items-center mb-4">
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select">
+                    {/* Header */}
+                    <div className="bg-wps-deep p-5 text-white shadow-xl relative z-10">
+                        <div className="flex justify-between items-start mb-6">
                             <div className="flex items-center gap-3">
-                                <img src="WPSLogo.jpg" className="w-10 h-10 object-contain" />
+                                <img src="WPSLogo.jpg" className="w-12 h-12 bg-white rounded-xl p-1 shadow-inner" />
                                 <div>
-                                    <h1 className="font-black leading-none uppercase text-lg tracking-tighter">Winchester</h1>
-                                    <p className="text-[8px] font-bold tracking-[0.3em] uppercase opacity-60">Public School</p>
+                                    <h1 className="text-xl font-black uppercase tracking-tighter leading-none">WPS Hub</h1>
+                                    <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">Staff Timetables</p>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-black uppercase opacity-60 mb-0.5">Cycle Day</p>
-                                <div className="bg-wps-bright text-wps-deep px-3 py-1 rounded-full font-black text-sm shadow-lg shadow-wps-bright/20">
-                                    {currentCycleDay}
-                                </div>
+                            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 text-center min-w-[70px]">
+                                <p className="text-[8px] font-black uppercase opacity-60 mb-1">Cycle Day</p>
+                                <p className="text-2xl font-black text-wps-bright leading-none">{currentCycleDay}</p>
                             </div>
                         </div>
-                        
-                        <div className="flex bg-white/10 p-1 rounded-xl mb-2">
+
+                        <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl shadow-inner">
                             {["1", "2", "3", "4", "5"].map(d => (
-                                <button key={d} onClick={() => setSelectedDay(d)} className={`flex-1 py-2 rounded-lg text-xs font-black transition-all ${selectedDay === d ? "bg-white text-wps-deep shadow-lg" : "text-white/40"}`}>
+                                <button key={d} onClick={() => setSelectedDay(d)} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${selectedDay === d ? "bg-white text-wps-deep shadow-lg scale-105" : "text-white/40 hover:text-white/60"}`}>
                                     D{d}
                                 </button>
                             ))}
                         </div>
-                    </header>
+                    </div>
 
-                    <main className="p-4 space-y-4">
-                        <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">Staff Member</label>
+                    {/* Main Content */}
+                    <div className="p-4 flex-grow space-y-4">
+                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Current Schedule</label>
                             <select 
                                 value={selectedSheetId} 
                                 onChange={e => setSelectedSheetId(e.target.value)}
-                                className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-wps-deep appearance-none focus:ring-2 focus:ring-wps-bright/20"
+                                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none transition-all appearance-none"
                             >
                                 {sheetIds.map(id => (
-                                    <option key={id} value={id}>
-                                        {id === "PREPS" ? "PREPS (Reference)" : (data[id].displayName || id)}
-                                    </option>
+                                    <option key={id} value={id}>{id === "PREPS" ? "PREPS (All Staff)" : (data[id].displayName || id)}</option>
                                 ))}
                             </select>
-                            {teacherData?.assignment && (
-                                <div className="mt-3 inline-block px-3 py-1 bg-wps-deep/5 text-wps-deep rounded-full text-[10px] font-black uppercase tracking-tight">
-                                    {isPrepsView ? "Preps Reference" : teacherData.assignment}
-                                </div>
-                            )}
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             {schedule.map((subject, i) => {
-                                const isFree = !isPrepsView && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
+                                const isFree = !selectedSheetId.includes("PREPS") && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
                                 return (
-                                    <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${isFree ? 'bg-slate-50 border-slate-100 opacity-50' : 'bg-white border-white shadow-sm'}`}>
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${isFree ? 'bg-slate-200 text-slate-400' : 'bg-wps-deep text-white'}`}>
+                                    <div key={i} className={`flex items-center p-4 rounded-3xl border-2 transition-all ${isFree ? 'bg-slate-100/50 border-transparent opacity-40 scale-[0.98]' : 'bg-white border-white shadow-sm'}`}>
+                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 mr-4 ${isFree ? 'bg-slate-200 text-slate-400' : 'bg-wps-deep text-white shadow-md shadow-wps-deep/10'}`}>
                                             {i + 1}
                                         </div>
-                                        <div className="flex-grow">
-                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tight">Period {i + 1}</p>
-                                            <h4 className={`font-bold text-sm ${isFree ? 'italic text-slate-500' : 'text-wps-deep'}`}>
-                                                {subject || (isPrepsView ? "None" : "Unassigned")}
+                                        <div>
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {i+1}</p>
+                                            <h4 className={`font-bold text-base leading-tight ${isFree ? 'italic' : 'text-wps-deep'}`}>
+                                                {subject || "Unassigned"}
                                             </h4>
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
-                    </main>
-                    
-                    <footer className="mt-auto py-6 text-center">
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">Winchester PS Portal</p>
-                    </footer>
+                    </div>
+
+                    {/* Bottom Status */}
+                    {isSyncing && (
+                        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-wps-deep text-white px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-2xl flex items-center gap-2">
+                            <div className="w-2 h-2 bg-wps-bright rounded-full animate-ping" />
+                            Syncing...
+                        </div>
+                    )}
                 </div>
             );
         };
