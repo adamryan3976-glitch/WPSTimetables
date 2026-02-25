@@ -84,7 +84,6 @@
                     .then(json => {
                         setData(json);
                         
-                        // Exclusion list
                         const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days"];
                         
                         const ids = Object.keys(json)
@@ -98,41 +97,46 @@
                         setSheetIds(ids);
                         if (ids.length > 0) setSelectedSheetId(ids[0]);
 
-                        // Improved logic to find current cycle day
+                        // Improved Cycle Day Detection
                         if (json["Cycle Days"]) {
                             const now = new Date();
-                            const tYear = now.getFullYear();
-                            const tMonth = now.getMonth();
-                            const tDate = now.getDate();
+                            // Create a clean "YYYY-MM-DD" string for today in local time
+                            const tY = now.getFullYear();
+                            const tM = String(now.getMonth() + 1).padStart(2, '0');
+                            const tD = String(now.getDate()).padStart(2, '0');
+                            const todayKey = `${tY}-${tM}-${tD}`;
                             
                             let foundDay = "N/A";
                             const cycleSheetData = json["Cycle Days"].raw || [];
                             
                             for (const row of cycleSheetData) {
                                 if (row[0]) {
-                                    let cellValue = row[0];
-                                    
-                                    // Handle string dates like "2/25/2026" or "2026-02-25"
-                                    // We create a date object then extract parts to avoid timezone shifting
-                                    let d = new Date(cellValue);
-                                    
-                                    // If cell is a string like "2/25/2026", JS might treat it as local.
-                                    // If it's "2026-02-25", JS treats it as UTC.
-                                    // To fix this, if we see a dash, we know it's ISO and we should fix the offset
-                                    if (typeof cellValue === 'string' && cellValue.includes('-')) {
-                                        // Force it to be treated as local time
-                                        d = new Date(cellValue.replace(/-/g, '\/'));
-                                    }
+                                    let cellDate;
+                                    try {
+                                        // Attempt to parse the cell
+                                        const d = new Date(row[0]);
+                                        if (isNaN(d.getTime())) continue;
 
-                                    if (d && !isNaN(d.getTime())) {
-                                        if (
-                                            d.getFullYear() === tYear &&
-                                            d.getMonth() === tMonth &&
-                                            d.getDate() === tDate
-                                        ) {
+                                        // We extract the date parts specifically to avoid TZ shifting
+                                        // If the string contains "T", it's ISO. If not, it's a date string.
+                                        // We get the YYYY-MM-DD from whatever the string is.
+                                        const rY = d.getUTCFullYear();
+                                        const rM = String(d.getUTCMonth() + 1).padStart(2, '0');
+                                        const rD = String(d.getUTCDate()).padStart(2, '0');
+                                        const rowKey = `${rY}-${rM}-${rD}`;
+
+                                        // Also try Local parts just in case
+                                        const lY = d.getFullYear();
+                                        const lM = String(d.getMonth() + 1).padStart(2, '0');
+                                        const lD = String(d.getDate()).padStart(2, '0');
+                                        const rowLocalKey = `${lY}-${lM}-${lD}`;
+
+                                        if (rowKey === todayKey || rowLocalKey === todayKey) {
                                             foundDay = row[1];
                                             break;
                                         }
+                                    } catch (e) {
+                                        continue;
                                     }
                                 }
                             }
