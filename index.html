@@ -64,6 +64,7 @@
         const UserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
         const ClockIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>;
         const ChevronDownIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>;
+        const StarIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>;
 
         const API_URL = "https://script.google.com/macros/s/AKfycby9Enax-ekH4DBbxAvTos0SRiAYmy2lM62fnOdwn_tUsq-9u52U4FALEq2TiXr8flVH/exec";
 
@@ -85,7 +86,12 @@
                         
                         const ids = Object.keys(json)
                             .filter(id => !exclude.includes(id))
-                            .sort((a, b) => a.localeCompare(b));
+                            .sort((a, b) => {
+                                // Force PREPS to the top
+                                if (a === "PREPS") return -1;
+                                if (b === "PREPS") return 1;
+                                return a.localeCompare(b);
+                            });
                         
                         setSheetIds(ids);
                         if (ids.length > 0) setSelectedSheetId(ids[0]);
@@ -116,6 +122,7 @@
 
             const teacherData = data[selectedSheetId];
             const schedule = teacherData ? teacherData.schedule[selectedDay] : [];
+            const isPrepsView = selectedSheetId === "PREPS";
 
             return (
                 <div className="max-w-md mx-auto min-h-screen flex flex-col">
@@ -144,21 +151,31 @@
                     <main className="p-4 space-y-4 flex-grow">
                         {/* Selector */}
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                            <label className="block text-[10px] font-black text-wps-slate/50 uppercase tracking-[0.2em] mb-3 ml-1">Staff Member</label>
+                            <label className="block text-[10px] font-black text-wps-slate/50 uppercase tracking-[0.2em] mb-3 ml-1">
+                                {isPrepsView ? "Reference Schedule" : "Staff Member"}
+                            </label>
                             <div className="relative">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-wps-bright"><UserIcon /></div>
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-wps-bright">
+                                    {isPrepsView ? <StarIcon /> : <UserIcon />}
+                                </div>
                                 <select 
                                     value={selectedSheetId} 
                                     onChange={(e) => setSelectedSheetId(e.target.value)}
-                                    className="w-full pl-12 pr-10 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-wps-bright/20 appearance-none text-wps-deep font-black text-lg transition-all"
+                                    className={`w-full pl-12 pr-10 py-4 border-none rounded-2xl focus:ring-2 appearance-none font-black text-lg transition-all ${
+                                        isPrepsView 
+                                        ? "bg-wps-deep/5 text-wps-deep focus:ring-wps-deep/20" 
+                                        : "bg-slate-50 text-wps-deep focus:ring-wps-bright/20"
+                                    }`}
                                 >
-                                    {sheetIds.map(id => <option key={id} value={id}>{data[id].displayName}</option>)}
+                                    {sheetIds.map(id => <option key={id} value={id}>{data[id].displayName || id}</option>)}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-wps-deep/30 pointer-events-none"><ChevronDownIcon /></div>
                             </div>
-                            {teacherData?.assignment && (
+                            {(teacherData?.assignment || isPrepsView) && (
                                 <div className="mt-4 flex gap-2">
-                                    <span className="text-[10px] font-black px-3 py-1 bg-wps-deep/5 text-wps-deep rounded-full border border-wps-deep/10 uppercase tracking-tighter">{teacherData.assignment}</span>
+                                    <span className="text-[10px] font-black px-3 py-1 bg-wps-deep/5 text-wps-deep rounded-full border border-wps-deep/10 uppercase tracking-tighter">
+                                        {isPrepsView ? "Staff on Prep" : teacherData.assignment}
+                                    </span>
                                     <span className="text-[10px] font-black px-3 py-1 bg-wps-bright/10 text-wps-deep rounded-full border border-wps-bright/20 uppercase tracking-tighter">Day {selectedDay}</span>
                                 </div>
                             )}
@@ -167,17 +184,30 @@
                         {/* Schedule */}
                         <div className="space-y-2.5">
                             {schedule.map((subject, i) => {
-                                const isFree = subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free") || !subject;
+                                // For the PREPS view, we treat the field as a list of names, so it's only "free" if it's empty
+                                const isFree = !isPrepsView && (subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free") || !subject);
+                                const isEmpty = isPrepsView && !subject;
+
                                 return (
-                                    <div key={i} className={`flex items-center p-4 rounded-[1.5rem] border transition-all duration-300 ${isFree ? "bg-slate-100/40 border-slate-200/30 opacity-40 scale-[0.98] origin-left" : "bg-white border-white shadow-sm shadow-slate-200"}`}>
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm mr-4 transition-all ${isFree ? "bg-slate-200 text-slate-400" : "bg-wps-deep text-white shadow-lg shadow-wps-deep/20"}`}>
+                                    <div key={i} className={`flex items-start p-4 rounded-[1.5rem] border transition-all duration-300 ${
+                                        (isFree || isEmpty) 
+                                        ? "bg-slate-100/40 border-slate-200/30 opacity-40 scale-[0.98] origin-left" 
+                                        : "bg-white border-white shadow-sm shadow-slate-200"
+                                    }`}>
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm mr-4 mt-0.5 transition-all flex-shrink-0 ${
+                                            (isFree || isEmpty) ? "bg-slate-200 text-slate-400" : "bg-wps-deep text-white shadow-lg shadow-wps-deep/20"
+                                        }`}>
                                             {i + 1}
                                         </div>
                                         <div className="flex-grow">
                                             <p className="text-[9px] font-black text-wps-slate/40 uppercase tracking-tighter">Period {i + 1}</p>
-                                            <h3 className={`font-bold text-base leading-tight tracking-tight ${isFree ? "text-wps-slate italic font-medium" : "text-wps-deep"}`}>{subject || "Unassigned"}</h3>
+                                            <h3 className={`font-bold text-base leading-tight tracking-tight whitespace-pre-line ${
+                                                (isFree || isEmpty) ? "text-wps-slate italic font-medium" : "text-wps-deep"
+                                            }`}>
+                                                {subject || (isPrepsView ? "No staff on prep" : "Unassigned")}
+                                            </h3>
                                         </div>
-                                        {!isFree && <div className="text-wps-bright animate-pulse"><ClockIcon /></div>}
+                                        {(!isFree && !isEmpty) && <div className="text-wps-bright mt-1.5"><ClockIcon /></div>}
                                     </div>
                                 );
                             })}
