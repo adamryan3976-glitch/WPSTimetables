@@ -101,37 +101,31 @@
                         // Logic to find current cycle day
                         if (json["Cycle Days"]) {
                             const today = new Date();
-                            // Format: "YYYY-MM-DD" or similar to match how Google Sheets might send dates
-                            // Usually Apps Script returns dates as ISO strings
-                            const todayStr = today.toISOString().split('T')[0];
-                            const cycleData = json["Cycle Days"].schedule; 
+                            // Use locale string for comparison to avoid timezone shifts
+                            const todayComparison = today.toLocaleDateString('en-CA'); // YYYY-MM-DD format
                             
-                            // Note: We assume 'Cycle Days' sheet structure follows your other sheets
-                            // but usually for a lookup sheet like this, we iterate the data rows.
-                            // If it's formatted like a schedule, we look for today's entry.
-                            
-                            // Iterate through the keys in the Cycle Days schedule (which are Days 1-5)
-                            // Since Cycle Days is a list of dates in Col A and Cycle Day in Col B, 
-                            // we need to find the specific entry. 
-                            
-                            // Assuming the Apps Script returns raw values for sheets that don't match the 
-                            // 1-10 period format perfectly, we look for a match.
                             let foundDay = "N/A";
                             const cycleSheet = json["Cycle Days"].raw || [];
                             
                             cycleSheet.forEach(row => {
                                 if (row[0]) {
-                                    const rowDate = new Date(row[0]).toISOString().split('T')[0];
-                                    if (rowDate === todayStr) {
-                                        foundDay = row[1];
+                                    const rowDate = new Date(row[0]);
+                                    // Check if date is valid
+                                    if (!isNaN(rowDate.getTime())) {
+                                        const rowDateStr = rowDate.toLocaleDateString('en-CA');
+                                        if (rowDateStr === todayComparison) {
+                                            foundDay = row[1];
+                                        }
                                     }
                                 }
                             });
+                            
                             setCurrentCycleDay(foundDay);
                             
-                            // Auto-set the selected day to today's cycle day if valid
-                            if (foundDay !== "N/A" && ["1","2","3","4","5"].includes(foundDay.toString())) {
-                                setSelectedDay(foundDay.toString());
+                            // Auto-set the selected day to today's cycle day if valid (1-5)
+                            const cleanDay = foundDay?.toString();
+                            if (cleanDay && ["1","2","3","4","5"].includes(cleanDay)) {
+                                setSelectedDay(cleanDay);
                             }
                         }
 
