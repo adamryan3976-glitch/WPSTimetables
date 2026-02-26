@@ -51,7 +51,7 @@
         const { useState, useEffect, useMemo } = React;
 
         const API_URL = "https://script.google.com/macros/s/AKfycbx4RpGMEY7quXqwWd6SNf6Bu3hCTNPm5BmHt_PMidb3STiZMmBwafWOC2XcmHuHd_6p/exec"; 
-        const STORAGE_KEY = "wps_v15_font_size_tweak"; 
+        const STORAGE_KEY = "wps_v16_layout_refinement"; 
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -190,16 +190,14 @@
                                 const isEmpty = !rawSubject || rawSubject === "Free Period";
                                 const subjectDisplay = isEmpty ? "Unknown, but probably something awesome" : rawSubject;
                                 
-                                const isFree = selectedSheetId !== "PREPS" && (isEmpty || subjectDisplay.toLowerCase().includes("prep") || subjectDisplay.toLowerCase().includes("free"));
-                                
                                 return (
-                                    <div key={pNum} className={`flex items-center p-4 rounded-3xl border-2 transition-all ${isFree ? 'bg-slate-100/40 border-transparent opacity-50 grayscale' : 'bg-white border-white shadow-sm'}`}>
-                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 mr-4 ${isFree ? 'bg-slate-200 text-slate-400' : 'bg-wps-deep text-white shadow-md shadow-wps-deep/10'}`}>
+                                    <div key={pNum} className="flex items-center p-4 rounded-3xl border-2 bg-white border-white shadow-sm transition-all">
+                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 mr-4 bg-wps-deep text-white shadow-md shadow-wps-deep/10">
                                             {pNum}
                                         </div>
-                                        <div className="overflow-hidden">
+                                        <div className="flex-1 overflow-hidden">
                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {pNum}</p>
-                                            <h4 className={`font-bold leading-tight truncate ${isEmpty ? 'text-xs italic' : 'text-base'} ${isFree ? 'text-slate-500' : 'text-wps-deep'}`}>
+                                            <h4 className={`font-bold leading-tight text-wps-deep ${isEmpty ? 'text-[11px] leading-[1.2] italic whitespace-normal' : 'text-base truncate'}`}>
                                                 {subjectDisplay}
                                             </h4>
                                         </div>
