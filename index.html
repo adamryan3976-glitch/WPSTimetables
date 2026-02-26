@@ -27,8 +27,9 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
         .no-select { -webkit-user-select: none; user-select: none; }
+        select { font-size: 16px !important; } 
     </style>
 </head>
 <body>
@@ -37,8 +38,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        const API_URL = "https://script.google.com/macros/s/AKfycbzLVzD_pXFhxEpgz8A-4JXV1jCgzflWTB0X29Tc9ymKF84iYuC-3N8mkD35D4_h4gzl/exec";
-        const STORAGE_KEY = "wps_v8_cache";
+        // NEW WEB APP URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbziJGAhczb_dwuPz4A6DfDRrQZ2YpKqq-nOqwqoLDlLab3Yyf4ZfQxIJf7Dn0Rs-2U/exec";
+        const STORAGE_KEY = "wps_v9_stable"; 
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -55,8 +57,9 @@
                 return (val !== undefined && val !== null && val !== "") ? val.toString() : "N/A";
             }, [data]);
 
+            // Auto-set UI to current cycle day on load
             useEffect(() => {
-                const day = cycleDay?.toString().trim();
+                const day = cycleDay?.trim();
                 if (day && ["1", "2", "3", "4", "5"].includes(day)) {
                     setSelectedDay(day);
                 }
@@ -101,29 +104,32 @@
             }, [staffList]);
 
             if (!data) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white p-10">
-                    <img src="WPSLogo.jpg" className="w-20 h-20 animate-pulse mb-4" />
-                    <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Connecting to Sheets...</p>
+                <div className="h-screen flex flex-col items-center justify-center bg-white p-10 text-center">
+                    <img src="WPSLogo.jpg" className="w-20 h-20 animate-pulse mb-6" onerror="this.src='https://via.placeholder.com/80?text=WPS'"/>
+                    <div className="space-y-2">
+                        <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Syncing Schedule Data</p>
+                        <div className="w-32 h-1 bg-slate-100 mx-auto rounded-full overflow-hidden">
+                            <div className="h-full bg-wps-bright animate-progress origin-left"></div>
+                        </div>
+                    </div>
                 </div>
             );
 
-            // Generate exactly 10 periods
-            const schedule = Array.from({ length: 10 }, (_, i) => {
-                const rawSchedule = data[selectedSheetId]?.schedule?.[selectedDay] || [];
-                return rawSchedule[i] || ""; // Fallback to empty if index doesn't exist
-            });
+            // Fixed 10 periods
+            const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+            const currentSchedule = data[selectedSheetId]?.schedule?.[selectedDay] || [];
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select">
                     {/* Header */}
                     <div className="bg-wps-deep p-5 text-white shadow-xl relative z-10">
                         <div className="flex justify-between items-start mb-6">
-                            <div className="flex items-center gap-3 cursor-pointer active:scale-95 transition-transform" onClick={syncData}>
-                                <img src="WPSLogo.jpg" className={`w-12 h-12 bg-white rounded-xl p-1 shadow-inner ${isSyncing ? 'animate-spin' : ''}`} />
+                            <div className="flex items-center gap-3 cursor-pointer active:opacity-70 transition-opacity" onClick={syncData}>
+                                <img src="WPSLogo.jpg" className={`w-12 h-12 bg-white rounded-xl p-1 shadow-inner ${isSyncing ? 'animate-spin' : ''}`} onerror="this.src='https://via.placeholder.com/48?text=W'"/>
                                 <div>
                                     <h1 className="text-xl font-black uppercase tracking-tighter leading-none">WPS Hub</h1>
                                     <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">
-                                        {isSyncing ? 'Syncing...' : 'Staff Portal'}
+                                        {isSyncing ? 'Refreshing...' : 'Staff Portal'}
                                     </p>
                                 </div>
                             </div>
@@ -133,12 +139,13 @@
                             </div>
                         </div>
 
+                        {/* Day Selector */}
                         <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl shadow-inner">
                             {["1", "2", "3", "4", "5"].map(d => (
                                 <button 
                                     key={d} 
                                     onClick={() => setSelectedDay(d)} 
-                                    className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${selectedDay === d ? "bg-white text-wps-deep shadow-lg scale-105" : "text-white/40"}`}
+                                    className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${selectedDay === d ? "bg-white text-wps-deep shadow-lg scale-105" : "text-white/40 hover:text-white/60"}`}
                                 >
                                     D{d}
                                 </button>
@@ -146,10 +153,11 @@
                         </div>
                     </div>
 
-                    {/* Staff Selector */}
+                    {/* Content */}
                     <div className="p-4 flex-grow space-y-4">
+                        {/* Selector Card */}
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Select Staff Member</label>
                             <div className="relative">
                                 <select 
                                     value={selectedSheetId} 
@@ -158,34 +166,39 @@
                                 >
                                     {staffList.map(staff => (
                                         <option key={staff.id} value={staff.id}>
-                                            {staff.id === "PREPS" ? "REFERENCE: Master Preps" : staff.displayName}
+                                            {staff.id === "PREPS" ? "⭐ MASTER PREPS" : staff.displayName}
                                         </option>
                                     ))}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-                                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                    <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
                                 </div>
                             </div>
+                            
                             {data[selectedSheetId]?.assignment && (
-                                <div className="mt-3 inline-block px-3 py-1 bg-wps-deep/5 text-wps-deep rounded-full text-[10px] font-black uppercase tracking-tight">
-                                    {selectedSheetId === "PREPS" ? "All Grades" : data[selectedSheetId].assignment}
+                                <div className="mt-4 flex items-center gap-2 px-1">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-wps-bright animate-pulse"></div>
+                                    <span className="text-[10px] font-black text-wps-deep/60 uppercase tracking-wider truncate">
+                                        {data[selectedSheetId].assignment}
+                                    </span>
                                 </div>
                             )}
                         </div>
 
-                        {/* Schedule List - Fixed to 10 periods */}
-                        <div className="space-y-3 pb-20">
-                            {schedule.map((subject, i) => {
+                        {/* Schedule List */}
+                        <div className="space-y-3 pb-24">
+                            {periods.map((pNum, i) => {
+                                const subject = currentSchedule[i] || "";
                                 const isFree = selectedSheetId !== "PREPS" && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
                                 
                                 return (
-                                    <div key={i} className={`flex items-center p-4 rounded-3xl border-2 transition-all ${isFree ? 'bg-slate-100/50 border-transparent opacity-40 scale-[0.98]' : 'bg-white border-white shadow-sm'}`}>
+                                    <div key={pNum} className={`flex items-center p-4 rounded-3xl border-2 transition-all ${isFree ? 'bg-slate-100/40 border-transparent opacity-50 grayscale' : 'bg-white border-white shadow-sm'}`}>
                                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 mr-4 ${isFree ? 'bg-slate-200 text-slate-400' : 'bg-wps-deep text-white shadow-md shadow-wps-deep/10'}`}>
-                                            {i + 1}
+                                            {pNum}
                                         </div>
-                                        <div>
-                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {i+1}</p>
-                                            <h4 className={`font-bold text-base leading-tight ${isFree ? 'italic text-slate-500' : 'text-wps-deep'}`}>
+                                        <div className="overflow-hidden">
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {pNum}</p>
+                                            <h4 className={`font-bold text-base leading-tight truncate ${isFree ? 'italic text-slate-500' : 'text-wps-deep'}`}>
                                                 {subject || "Unassigned"}
                                             </h4>
                                         </div>
@@ -195,8 +208,8 @@
                         </div>
                     </div>
                     
-                    <footer className="py-6 text-center opacity-30 cursor-pointer" onClick={syncData}>
-                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.5em]">Winchester Public School</p>
+                    <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md py-4 text-center border-t border-slate-100 cursor-pointer active:opacity-50" onClick={syncData}>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.5em]">Winchester Public School</p>
                     </footer>
                 </div>
             );
@@ -205,5 +218,15 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
+    <style>
+        @keyframes progress {
+            0% { transform: scaleX(0); }
+            50% { transform: scaleX(0.7); }
+            100% { transform: scaleX(1); }
+        }
+        .animate-progress {
+            animation: progress 2s ease-in-out infinite;
+        }
+    </style>
 </body>
 </html>
