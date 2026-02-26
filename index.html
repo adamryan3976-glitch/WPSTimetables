@@ -42,9 +42,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // UPDATED WEB APP URL
+        // WEB APP URL
         const API_URL = "https://script.google.com/macros/s/AKfycbxxMBHcVSyvfE-U_ujnwA1CzjXgkkNONaRuT-lD2An4NNUdRyJ2nVXr7Z7ZKmWsAENy/exec"; 
-        const CACHE_KEY = "wps_schedule_cache_v11";
+        const CACHE_KEY = "wps_schedule_cache_v12";
 
         const Icon = ({ name, className }) => {
             const [iconHtml, setIconHtml] = useState("");
@@ -67,7 +67,7 @@
             const [selectedSheetId, setSelectedSheetId] = useState("");
             const [selectedDay, setSelectedDay] = useState("1");
             const [isSyncing, setIsSyncing] = useState(false);
-            const [hasError, setHasError] = useState(false);
+            const [errorMsg, setErrorMsg] = useState(null);
 
             const sheetIds = useMemo(() => {
                 if (!data) return [];
@@ -77,7 +77,6 @@
                     .sort((a, b) => a === "PREPS" ? -1 : b === "PREPS" ? 1 : a.localeCompare(b));
             }, [data]);
 
-            // Auto-selection logic
             useEffect(() => {
                 if (data?.currentCycleDay) {
                     const day = data.currentCycleDay.toString().trim();
@@ -90,18 +89,30 @@
 
             const fetchData = async (isManual = false) => {
                 if (isManual || !data) setIsSyncing(true);
-                setHasError(false);
+                setErrorMsg(null);
+                
                 try {
-                    const response = await fetch(API_URL);
-                    if (!response.ok) throw new Error("API Offline");
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+                    const response = await fetch(API_URL, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                    
                     const json = await response.json();
+                    
                     if (json && typeof json === 'object') {
                         setData(json);
                         localStorage.setItem(CACHE_KEY, JSON.stringify(json));
+                    } else {
+                        throw new Error("Invalid Data Format");
                     }
                 } catch (err) {
                     console.error("Sync error:", err);
-                    if (!data) setHasError(true);
+                    if (!data) {
+                        setErrorMsg(err.name === 'AbortError' ? "Connection Timed Out" : "Google Sheets is currently unreachable");
+                    }
                 } finally {
                     setIsSyncing(false);
                 }
@@ -109,14 +120,18 @@
 
             useEffect(() => { fetchData(); }, []);
 
-            if (hasError) return (
+            if (errorMsg) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white p-10 text-center">
-                    <Icon name="WifiOff" className="w-12 h-12 text-slate-300 mb-4" />
+                    <div className="bg-red-50 p-4 rounded-full mb-4">
+                        <Icon name="AlertTriangle" className="w-8 h-8 text-red-500" />
+                    </div>
                     <h2 className="text-slate-800 font-black uppercase text-sm tracking-widest">Connection Error</h2>
-                    <p className="text-slate-500 text-xs mt-2 mb-6">Unable to load the schedule from Google Sheets.</p>
-                    <button onClick={() => fetchData(true)} className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all">
-                        Try Again
-                    </button>
+                    <p className="text-slate-500 text-xs mt-2 mb-6">{errorMsg}</p>
+                    <div className="space-y-3 w-full">
+                        <button onClick={() => fetchData(true)} className="w-full bg-blue-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all">
+                            Retry Connection
+                        </button>
+                    </div>
                 </div>
             );
 
@@ -126,7 +141,7 @@
                         <Icon name="Loader2" className="w-8 h-8 text-blue-600 animate-spin" />
                     </div>
                     <h2 className="text-blue-600 font-black uppercase tracking-[0.3em] text-[10px]">WPS Hub</h2>
-                    <p className="mt-3 text-slate-400 text-xs loading-pulse">Syncing with Winchester...</p>
+                    <p className="mt-3 text-slate-400 text-xs loading-pulse font-medium">Syncing with Winchester...</p>
                 </div>
             );
 
@@ -135,10 +150,9 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select pb-28">
-                    {/* Sticky Nav */}
                     <nav className="bg-blue-600 text-white sticky top-0 z-20 px-5 py-6 shadow-xl shadow-blue-900/10">
                         <div className="flex justify-between items-center mb-6">
-                            <div className="flex items-center gap-3" onClick={() => fetchData(true)}>
+                            <div className="flex items-center gap-3">
                                 <div className="bg-white/20 p-2.5 rounded-2xl">
                                     <Icon name="BookOpen" className="w-6 h-6" />
                                 </div>
@@ -147,7 +161,7 @@
                                     <div className="flex items-center gap-1.5 mt-1">
                                         <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`}></div>
                                         <p className="text-[9px] font-black uppercase tracking-widest opacity-60">
-                                            {isSyncing ? 'Updating...' : 'Live Portal'}
+                                            {isSyncing ? 'Syncing...' : 'Live Portal'}
                                         </p>
                                     </div>
                                 </div>
@@ -158,7 +172,6 @@
                             </div>
                         </div>
 
-                        {/* Day Selector */}
                         <div className="flex gap-1.5 bg-black/15 p-1 rounded-2xl">
                             {["1", "2", "3", "4", "5"].map(d => (
                                 <button
@@ -175,14 +188,13 @@
                     </nav>
 
                     <main className="p-4 space-y-4">
-                        {/* Staff Picker */}
                         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200/60 p-7">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
                             <div className="relative">
                                 <select 
                                     value={selectedSheetId}
                                     onChange={(e) => setSelectedSheetId(e.target.value)}
-                                    className="w-full pl-5 pr-12 py-4.5 bg-slate-50 border-none rounded-2xl font-black text-lg text-slate-800 appearance-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                                    className="w-full pl-5 pr-12 py-4.5 bg-slate-50 border-none rounded-2xl font-black text-lg text-slate-800 appearance-none focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
                                 >
                                     {sheetIds.map(id => (
                                         <option key={id} value={id}>{data[id]?.displayName || id}</option>
@@ -194,7 +206,6 @@
                             </div>
                         </div>
 
-                        {/* Schedule Items */}
                         <div className="space-y-3">
                             {currentSchedule.map((subject, i) => {
                                 const isFree = !subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free");
@@ -219,7 +230,6 @@
                         </div>
                     </main>
 
-                    {/* Floating Refresh */}
                     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-[220px] px-4">
                         <button 
                             onClick={() => fetchData(true)}
