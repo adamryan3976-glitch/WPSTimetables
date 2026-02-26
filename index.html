@@ -37,7 +37,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // UPDATED WEB APP URL
         const API_URL = "https://script.google.com/macros/s/AKfycbzLVzD_pXFhxEpgz8A-4JXV1jCgzflWTB0X29Tc9ymKF84iYuC-3N8mkD35D4_h4gzl/exec";
         const STORAGE_KEY = "wps_v8_cache";
 
@@ -79,26 +78,27 @@
 
             useEffect(() => { syncData(); }, []);
 
-            const sheetIds = useMemo(() => {
+            const staffList = useMemo(() => {
                 if (!data) return [];
                 const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days", "currentCycleDay"];
                 return Object.keys(data)
                     .filter(id => !exclude.includes(id))
+                    .map(id => ({
+                        id: id,
+                        displayName: data[id]?.displayName || id
+                    }))
                     .sort((a, b) => {
-                        if (a === "PREPS") return -1;
-                        if (b === "PREPS") return 1;
-                        // Sort by Display Name if available, otherwise use ID
-                        const nameA = data[a]?.displayName || a;
-                        const nameB = data[b]?.displayName || b;
-                        return nameA.localeCompare(nameB);
+                        if (a.id === "PREPS") return -1;
+                        if (b.id === "PREPS") return 1;
+                        return a.displayName.localeCompare(b.displayName);
                     });
             }, [data]);
 
             useEffect(() => {
-                if (sheetIds.length > 0 && !selectedSheetId) {
-                    setSelectedSheetId(sheetIds[0]);
+                if (staffList.length > 0 && !selectedSheetId) {
+                    setSelectedSheetId(staffList[0].id);
                 }
-            }, [sheetIds]);
+            }, [staffList]);
 
             if (!data) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white p-10">
@@ -107,8 +107,11 @@
                 </div>
             );
 
-            // Get the actual schedule array for the selected staff and day
-            const schedule = data[selectedSheetId]?.schedule?.[selectedDay] || [];
+            // Generate exactly 10 periods
+            const schedule = Array.from({ length: 10 }, (_, i) => {
+                const rawSchedule = data[selectedSheetId]?.schedule?.[selectedDay] || [];
+                return rawSchedule[i] || ""; // Fallback to empty if index doesn't exist
+            });
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select">
@@ -130,7 +133,6 @@
                             </div>
                         </div>
 
-                        {/* Day Selector */}
                         <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl shadow-inner">
                             {["1", "2", "3", "4", "5"].map(d => (
                                 <button 
@@ -144,7 +146,7 @@
                         </div>
                     </div>
 
-                    {/* Main List */}
+                    {/* Staff Selector */}
                     <div className="p-4 flex-grow space-y-4">
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
@@ -154,9 +156,9 @@
                                     onChange={e => setSelectedSheetId(e.target.value)}
                                     className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none transition-all appearance-none"
                                 >
-                                    {sheetIds.map(id => (
-                                        <option key={id} value={id}>
-                                            {id === "PREPS" ? "REFERENCE: PREPS (All Staff)" : (data[id]?.displayName || id)}
+                                    {staffList.map(staff => (
+                                        <option key={staff.id} value={staff.id}>
+                                            {staff.id === "PREPS" ? "REFERENCE: Master Preps" : staff.displayName}
                                         </option>
                                     ))}
                                 </select>
@@ -166,14 +168,14 @@
                             </div>
                             {data[selectedSheetId]?.assignment && (
                                 <div className="mt-3 inline-block px-3 py-1 bg-wps-deep/5 text-wps-deep rounded-full text-[10px] font-black uppercase tracking-tight">
-                                    {selectedSheetId === "PREPS" ? "Master Prep Schedule" : data[selectedSheetId].assignment}
+                                    {selectedSheetId === "PREPS" ? "All Grades" : data[selectedSheetId].assignment}
                                 </div>
                             )}
                         </div>
 
+                        {/* Schedule List - Fixed to 10 periods */}
                         <div className="space-y-3 pb-20">
-                            {schedule.length > 0 ? schedule.map((subject, i) => {
-                                // Logic to detect free periods: if text contains 'prep' or 'free', or if it's empty
+                            {schedule.map((subject, i) => {
                                 const isFree = selectedSheetId !== "PREPS" && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
                                 
                                 return (
@@ -183,15 +185,13 @@
                                         </div>
                                         <div>
                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {i+1}</p>
-                                            <h4 className={`font-bold text-base leading-tight ${isFree ? 'italic' : 'text-wps-deep'}`}>
+                                            <h4 className={`font-bold text-base leading-tight ${isFree ? 'italic text-slate-500' : 'text-wps-deep'}`}>
                                                 {subject || "Unassigned"}
                                             </h4>
                                         </div>
                                     </div>
                                 );
-                            }) : (
-                                <div className="text-center py-20 opacity-20 italic font-medium">No schedule data available. Please refresh.</div>
-                            )}
+                            })}
                         </div>
                     </div>
                     
