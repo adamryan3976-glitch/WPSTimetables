@@ -38,9 +38,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // NEW WEB APP URL
-        const API_URL = "https://script.google.com/macros/s/AKfycbziJGAhczb_dwuPz4A6DfDRrQZ2YpKqq-nOqwqoLDlLab3Yyf4ZfQxIJf7Dn0Rs-2U/exec";
-        const STORAGE_KEY = "wps_v9_stable"; 
+        // UPDATED WEB APP URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbzdU5iTRPSXGMLzynEZWMFh1_DLhG7_Rt2-5X8E4rbt4ocNpRABT_O4hhq9e5DYS7mA/exec";
+        const STORAGE_KEY = "wps_v11_b3_f12_final"; 
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -57,7 +57,6 @@
                 return (val !== undefined && val !== null && val !== "") ? val.toString() : "N/A";
             }, [data]);
 
-            // Auto-set UI to current cycle day on load
             useEffect(() => {
                 const day = cycleDay?.trim();
                 if (day && ["1", "2", "3", "4", "5"].includes(day)) {
@@ -72,6 +71,7 @@
                     const json = await res.json();
                     setData(json);
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
+                    console.log("Sync Complete:", json);
                 } catch (e) {
                     console.error("Sync failed", e);
                 } finally {
@@ -101,30 +101,26 @@
                 if (staffList.length > 0 && !selectedSheetId) {
                     setSelectedSheetId(staffList[0].id);
                 }
-            }, [staffList]);
+            }, [staffList, selectedSheetId]);
 
             if (!data) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white p-10 text-center">
                     <img src="WPSLogo.jpg" className="w-20 h-20 animate-pulse mb-6" onerror="this.src='https://via.placeholder.com/80?text=WPS'"/>
-                    <div className="space-y-2">
-                        <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Syncing Schedule Data</p>
-                        <div className="w-32 h-1 bg-slate-100 mx-auto rounded-full overflow-hidden">
-                            <div className="h-full bg-wps-bright animate-progress origin-left"></div>
-                        </div>
-                    </div>
+                    <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Connecting to Sheets...</p>
                 </div>
             );
 
-            // Fixed 10 periods
+            // Row range 3-12 provides exactly 10 periods
             const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-            const currentSchedule = data[selectedSheetId]?.schedule?.[selectedDay] || [];
+            const currentStaff = data[selectedSheetId];
+            const currentSchedule = currentStaff?.schedule?.[selectedDay] || [];
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select">
                     {/* Header */}
                     <div className="bg-wps-deep p-5 text-white shadow-xl relative z-10">
                         <div className="flex justify-between items-start mb-6">
-                            <div className="flex items-center gap-3 cursor-pointer active:opacity-70 transition-opacity" onClick={syncData}>
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={syncData}>
                                 <img src="WPSLogo.jpg" className={`w-12 h-12 bg-white rounded-xl p-1 shadow-inner ${isSyncing ? 'animate-spin' : ''}`} onerror="this.src='https://via.placeholder.com/48?text=W'"/>
                                 <div>
                                     <h1 className="text-xl font-black uppercase tracking-tighter leading-none">WPS Hub</h1>
@@ -139,7 +135,6 @@
                             </div>
                         </div>
 
-                        {/* Day Selector */}
                         <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl shadow-inner">
                             {["1", "2", "3", "4", "5"].map(d => (
                                 <button 
@@ -155,18 +150,17 @@
 
                     {/* Content */}
                     <div className="p-4 flex-grow space-y-4">
-                        {/* Selector Card */}
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Select Staff Member</label>
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
                             <div className="relative">
                                 <select 
                                     value={selectedSheetId} 
                                     onChange={e => setSelectedSheetId(e.target.value)}
-                                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none transition-all appearance-none"
+                                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none appearance-none"
                                 >
                                     {staffList.map(staff => (
                                         <option key={staff.id} value={staff.id}>
-                                            {staff.id === "PREPS" ? "⭐ MASTER PREPS" : staff.displayName}
+                                            {staff.displayName}
                                         </option>
                                     ))}
                                 </select>
@@ -175,11 +169,11 @@
                                 </div>
                             </div>
                             
-                            {data[selectedSheetId]?.assignment && (
+                            {currentStaff?.assignment && (
                                 <div className="mt-4 flex items-center gap-2 px-1">
                                     <div className="h-1.5 w-1.5 rounded-full bg-wps-bright animate-pulse"></div>
                                     <span className="text-[10px] font-black text-wps-deep/60 uppercase tracking-wider truncate">
-                                        {data[selectedSheetId].assignment}
+                                        {currentStaff.assignment}
                                     </span>
                                 </div>
                             )}
@@ -218,15 +212,5 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
-    <style>
-        @keyframes progress {
-            0% { transform: scaleX(0); }
-            50% { transform: scaleX(0.7); }
-            100% { transform: scaleX(1); }
-        }
-        .animate-progress {
-            animation: progress 2s ease-in-out infinite;
-        }
-    </style>
 </body>
 </html>
