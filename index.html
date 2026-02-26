@@ -1,223 +1,184 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { User, Calendar, Clock, ChevronRight, Info, BookOpen, RefreshCw } from 'lucide-react';
-
-/**
- * CONFIGURATION:
- * The Google Apps Script Web App URL provided by the user.
- */
-const API_URL = "https://script.google.com/macros/s/AKfycbzLVzD_pXFhxEpgz8A-4JXV1jCgzflWTB0X29Tc9ymKF84iYuC-3N8mkD35D4_h4gzl/exec"; 
-const CACHE_KEY = "wps_schedule_cache_v1";
-
-const App = () => {
-  // Initialize state from localStorage for instant loading
-  const [data, setData] = useState(() => {
-    const saved = localStorage.getItem(CACHE_KEY);
-    return saved ? JSON.parse(saved) : null;
-  });
-  
-  const [selectedSheetId, setSelectedSheetId] = useState("");
-  const [selectedDay, setSelectedDay] = useState("1");
-  const [loading, setLoading] = useState(!data); // Only show loader if we have NO cached data
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [error, setError] = useState(null);
-
-  // Derive sheet IDs from data
-  const sheetIds = useMemo(() => {
-    if (!data) return [];
-    const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days", "currentCycleDay"];
-    return Object.keys(data)
-      .filter(id => !exclude.includes(id))
-      .sort((a, b) => a === "PREPS" ? -1 : b === "PREPS" ? 1 : a.localeCompare(b));
-  }, [data]);
-
-  // Handle Cycle Day Auto-Selection
-  useEffect(() => {
-    if (data?.currentCycleDay) {
-      const day = data.currentCycleDay.toString().trim();
-      if (["1", "2", "3", "4", "5"].includes(day)) {
-        setSelectedDay(day);
-      }
-    }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WPS Portal</title>
     
-    // Set initial teacher if not set
-    if (sheetIds.length > 0 && !selectedSheetId) {
-      setSelectedSheetId(sheetIds[0]);
-    }
-  }, [data, sheetIds]);
+    <!-- iOS Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="WPSLogo.jpg">
+    <link rel="icon" type="image/jpeg" href="WPSLogo.jpg">
 
-  const fetchData = async (isManual = false) => {
-    if (isManual) setIsSyncing(true);
-    try {
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error("Network response was not ok");
-      const json = await response.json();
-      
-      // Update state and cache
-      setData(json);
-      localStorage.setItem(CACHE_KEY, JSON.stringify(json));
-      setError(null);
-    } catch (err) {
-      console.error("Fetch error:", err);
-      if (!data) {
-        setError("Unable to connect to the schedule database.");
-      }
-    } finally {
-      setLoading(false);
-      setIsSyncing(false);
-    }
-  };
-
-  // Initial load logic
-  useEffect(() => {
-    fetchData();
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     
-    // Add iOS specific meta tags dynamically
-    const head = document.head;
-    const metaApple = document.createElement('meta');
-    metaApple.name = "apple-mobile-web-app-capable";
-    metaApple.content = "yes";
-    head.appendChild(metaApple);
-  }, []);
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { wps: { deep: '#005496', bright: '#00D1FF', slate: '#53565A' } }
+                }
+            }
+        }
+    </script>
 
-  if (loading && !data) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-white">
-        <div className="relative">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
-          <BookOpen className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-blue-600" />
-        </div>
-        <p className="mt-6 text-slate-400 font-black text-[10px] uppercase tracking-[0.3em]">WPS Portal</p>
-      </div>
-    );
-  }
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
+        .no-select { -webkit-user-select: none; user-select: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
 
-  const teacherData = data && selectedSheetId ? data[selectedSheetId] : null;
-  const currentSchedule = teacherData ? (teacherData.schedule?.[selectedDay] || []) : [];
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
-      {/* Top Nav */}
-      <nav className="bg-blue-600 text-white sticky top-0 z-20 px-4 py-4 shadow-lg shadow-blue-900/10">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
-              <BookOpen className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="font-black text-lg tracking-tighter uppercase leading-none">WPS Hub</h1>
-              <div className="flex items-center gap-1.5 mt-1">
-                 <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`}></div>
-                 <p className="text-[8px] font-bold uppercase tracking-widest opacity-70">
-                   {isSyncing ? 'Syncing...' : 'Live Data'}
-                 </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-2 text-center">
-             <p className="text-[8px] font-black uppercase opacity-60 mb-0.5 tracking-tighter">Cycle Day</p>
-             <p className="text-xl font-black text-white leading-none">
-                {data?.currentCycleDay || 'N/A'}
-             </p>
-          </div>
-        </div>
-      </nav>
+        const API_URL = "https://script.google.com/macros/s/AKfycbzLVzD_pXFhxEpgz8A-4JXV1jCgzflWTB0X29Tc9ymKF84iYuC-3N8mkD35D4_h4gzl/exec"; 
+        const CACHE_KEY = "wps_schedule_cache_v1";
 
-      <main className="max-w-md mx-auto p-4 space-y-4">
-        {/* Day Selector - Floating Glassmorphism */}
-        <div className="flex bg-white rounded-3xl p-1.5 shadow-sm border border-slate-200">
-          {["1", "2", "3", "4", "5"].map(d => (
-            <button
-              key={d}
-              onClick={() => setSelectedDay(d)}
-              className={`flex-1 py-3 rounded-2xl text-sm font-black transition-all ${
-                selectedDay === d ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "text-slate-400 hover:text-slate-600"
-              }`}
-            >
-              D{d}
-            </button>
-          ))}
-        </div>
+        // Helper to render Lucide icons in HTML
+        const Icon = ({ name, className }) => {
+            const [iconHtml, setIconHtml] = useState("");
+            useEffect(() => {
+                if (window.lucide) {
+                    const icon = window.lucide.icons[name];
+                    if (icon) setIconHtml(icon.toSvg({ class: className }));
+                }
+            }, [name, className]);
+            return <span dangerouslySetInnerHTML={{ __html: iconHtml }} />;
+        };
 
-        {/* Selection Area */}
-        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200/60 p-6">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1">Staff Member</label>
-          <div className="relative">
-            <select 
-              value={selectedSheetId}
-              onChange={(e) => setSelectedSheetId(e.target.value)}
-              className="w-full pl-5 pr-10 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none text-slate-800 font-bold text-lg"
-            >
-              {sheetIds.map(id => (
-                <option key={id} value={id}>
-                  {data[id]?.displayName || id}
-                </option>
-              ))}
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
-              <ChevronRight className="w-5 h-5 rotate-90" />
-            </div>
-          </div>
-          
-          {teacherData?.assignment && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="text-[10px] font-black py-1.5 px-4 bg-slate-100 text-slate-600 rounded-full uppercase tracking-tighter">
-                {teacherData.assignment}
-              </span>
-              {isSyncing && (
-                <span className="text-[10px] font-black py-1.5 px-4 bg-blue-50 text-blue-600 rounded-full uppercase tracking-tighter flex items-center gap-2">
-                  <RefreshCw className="w-3 h-3 animate-spin" /> Refreshing...
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        const App = () => {
+            const [data, setData] = useState(() => {
+                const saved = localStorage.getItem(CACHE_KEY);
+                return saved ? JSON.parse(saved) : null;
+            });
+            
+            const [selectedSheetId, setSelectedSheetId] = useState("");
+            const [selectedDay, setSelectedDay] = useState("1");
+            const [isSyncing, setIsSyncing] = useState(false);
 
-        {/* Schedule List */}
-        <div className="space-y-3 pb-24">
-          {currentSchedule.map((subject, index) => {
-            const isFree = !subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free") || subject.toLowerCase() === "free period";
-            return (
-              <div 
-                key={index} 
-                className={`flex items-center p-4 rounded-[1.75rem] border transition-all duration-300 ${
-                  isFree 
-                  ? "bg-slate-100/40 border-slate-200/50 opacity-50 scale-[0.98]" 
-                  : "bg-white border-white shadow-sm active:scale-[0.98]"
-                }`}
-              >
-                <div className={`flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm mr-4 ${
-                  isFree ? "bg-slate-200 text-slate-400" : "bg-blue-600 text-white shadow-md shadow-blue-100"
-                }`}>
-                  {index + 1}
+            const sheetIds = useMemo(() => {
+                if (!data) return [];
+                const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days", "currentCycleDay"];
+                return Object.keys(data)
+                    .filter(id => !exclude.includes(id))
+                    .sort((a, b) => a === "PREPS" ? -1 : b === "PREPS" ? 1 : a.localeCompare(b));
+            }, [data]);
+
+            useEffect(() => {
+                if (data?.currentCycleDay) {
+                    const day = data.currentCycleDay.toString().trim();
+                    if (["1", "2", "3", "4", "5"].includes(day)) setSelectedDay(day);
+                }
+                if (sheetIds.length > 0 && !selectedSheetId) setSelectedSheetId(sheetIds[0]);
+            }, [data, sheetIds]);
+
+            const fetchData = async (isManual = false) => {
+                if (isManual) setIsSyncing(true);
+                try {
+                    const response = await fetch(API_URL);
+                    const json = await response.json();
+                    setData(json);
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(json));
+                } catch (err) {
+                    console.error("Fetch error:", err);
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            useEffect(() => { fetchData(); }, []);
+
+            if (!data) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-white">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                    <p className="text-blue-600 font-black text-[10px] uppercase tracking-widest">Initial Sync...</p>
                 </div>
-                <div className="flex-grow">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Period {index + 1}</p>
-                  <h3 className={`font-bold text-base leading-tight tracking-tight ${
-                    isFree ? "text-slate-500 italic" : "text-slate-900"
-                  }`}>
-                    {subject || "Free Period"}
-                  </h3>
-                </div>
-              </div>
             );
-          })}
-        </div>
-      </main>
 
-      {/* Persistent Bottom Sync Toggle */}
-      <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xs px-4">
-        <button 
-          onClick={() => fetchData(true)}
-          disabled={isSyncing}
-          className="w-full bg-slate-900 text-white py-4 rounded-3xl shadow-2xl shadow-slate-400 font-bold text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-transform"
-        >
-          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          {isSyncing ? 'Syncing...' : 'Force Refresh'}
-        </button>
-      </footer>
-    </div>
-  );
-};
+            const teacherData = selectedSheetId ? data[selectedSheetId] : null;
+            const currentSchedule = teacherData ? (teacherData.schedule?.[selectedDay] || []) : [];
 
-export default App;
+            return (
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select pb-24">
+                    <nav className="bg-blue-600 text-white sticky top-0 z-20 px-5 py-6 shadow-xl">
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-3" onClick={() => fetchData(true)}>
+                                <div className="bg-white/20 p-2 rounded-xl">
+                                    <Icon name="BookOpen" className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h1 className="font-black text-xl tracking-tighter uppercase leading-none">WPS Hub</h1>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`}></div>
+                                        <p className="text-[8px] font-bold uppercase tracking-widest opacity-60">
+                                            {isSyncing ? 'Syncing...' : 'Live Data'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-white/10 border border-white/20 rounded-2xl px-4 py-2 text-center">
+                                <p className="text-[8px] font-black uppercase opacity-60 mb-0.5">Cycle Day</p>
+                                <p className="text-2xl font-black leading-none">{data.currentCycleDay || 'N/A'}</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-1.5 bg-black/10 p-1 rounded-2xl mt-6">
+                            {["1", "2", "3", "4", "5"].map(d => (
+                                <button key={d} onClick={() => setSelectedDay(d)} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${selectedDay === d ? "bg-white text-blue-600 shadow-lg scale-105" : "text-white/40"}`}>D{d}</button>
+                            ))}
+                        </div>
+                    </nav>
+
+                    <main className="p-4 space-y-4">
+                        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-6">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
+                            <div className="relative">
+                                <select value={selectedSheetId} onChange={(e) => setSelectedSheetId(e.target.value)} className="w-full pl-4 pr-10 py-4 bg-slate-50 border-none rounded-2xl font-bold text-lg text-slate-800 appearance-none focus:ring-2 focus:ring-blue-500/20">
+                                    {sheetIds.map(id => <option key={id} value={id}>{data[id]?.displayName || id}</option>)}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
+                                    <Icon name="ChevronDown" className="w-5 h-5" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2.5">
+                            {currentSchedule.map((subject, i) => {
+                                const isFree = !subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free");
+                                return (
+                                    <div key={i} className={`flex items-center p-4 rounded-[1.5rem] border transition-all ${isFree ? "bg-slate-100/50 border-transparent opacity-50 scale-[0.98]" : "bg-white border-white shadow-sm"}`}>
+                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs mr-4 ${isFree ? "bg-slate-200 text-slate-400" : "bg-blue-600 text-white shadow-md shadow-blue-100"}`}>{i + 1}</div>
+                                        <div className="flex-grow">
+                                            <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mb-0.5">Period {i+1}</p>
+                                            <h3 className={`font-bold text-base leading-tight ${isFree ? "italic text-slate-500" : "text-slate-900"}`}>{subject || "Unassigned"}</h3>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </main>
+
+                    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[200px] px-4">
+                        <button onClick={() => fetchData(true)} className="w-full bg-slate-900 text-white py-4 rounded-3xl shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+                            <Icon name="RefreshCw" className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Refresh</span>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
