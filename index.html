@@ -29,8 +29,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; }
         .no-select { -webkit-user-select: none; user-select: none; }
-        @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        .syncing { animation: pulse-soft 2s infinite; }
     </style>
 </head>
 <body>
@@ -39,8 +37,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        const API_URL = "https://script.google.com/macros/s/AKfycby9Enax-ekH4DBbxAvTos0SRiAYmy2lM62fnOdwn_tUsq-9u52U4FALEq2TiXr8flVH/exec";
-        const STORAGE_KEY = "wps_v6_cache";
+        // UPDATED WEB APP URL
+        const API_URL = "https://script.google.com/macros/s/AKfycbzLVzD_pXFhxEpgz8A-4JXV1jCgzflWTB0X29Tc9ymKF84iYuC-3N8mkD35D4_h4gzl/exec";
+        const STORAGE_KEY = "wps_v8_cache";
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -51,39 +50,21 @@
             const [selectedDay, setSelectedDay] = useState("1");
             const [isSyncing, setIsSyncing] = useState(false);
 
-            // ULTIMATE FALLBACK SCANNER
-            const currentCycleDay = useMemo(() => {
-                if (!data || !data["Cycle Days"] || !data["Cycle Days"].raw) return "N/A";
-                
-                const rawRows = data["Cycle Days"].raw;
-                
-                // 1. Try specifically checking the first row for the D1 formula result
-                // (Indexes might be slightly different depending on empty columns)
-                const firstRow = rawRows[0] || [];
-                for (let i = 0; i < firstRow.length; i++) {
-                    const val = firstRow[i]?.toString().trim();
-                    if (val && ["1", "2", "3", "4", "5"].includes(val)) return val;
-                }
-
-                // 2. Full sheet scan for the first single digit 1-5 found in any cell
-                // excluding the long columns A and B
-                for (const row of rawRows) {
-                    for (let j = 2; j < row.length; j++) { // Start at column C (index 2)
-                        const val = row[j]?.toString().trim();
-                        if (val && ["1", "2", "3", "4", "5"].includes(val)) return val;
-                    }
-                }
-
-                return "N/A";
+            // Pull Cycle Day directly from the dedicated property in your new code.gs
+            const cycleDay = useMemo(() => {
+                if (!data) return "N/A";
+                // This matches the data["currentCycleDay"] key in your Apps Script
+                const val = data.currentCycleDay;
+                return (val !== undefined && val !== null && val !== "") ? val.toString() : "N/A";
             }, [data]);
 
-            // Sync selector with cycle day
+            // Auto-sync the UI to match the sheet's cycle day on load
             useEffect(() => {
-                const day = currentCycleDay?.toString().trim();
+                const day = cycleDay?.toString().trim();
                 if (day && ["1", "2", "3", "4", "5"].includes(day)) {
                     setSelectedDay(day);
                 }
-            }, [currentCycleDay]);
+            }, [cycleDay]);
 
             const syncData = async () => {
                 setIsSyncing(true);
@@ -103,7 +84,7 @@
 
             const sheetIds = useMemo(() => {
                 if (!data) return [];
-                const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days"];
+                const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days", "currentCycleDay"];
                 return Object.keys(data)
                     .filter(id => !exclude.includes(id))
                     .sort((a, b) => a === "PREPS" ? -1 : b === "PREPS" ? 1 : a.localeCompare(b));
@@ -116,10 +97,9 @@
             }, [sheetIds]);
 
             if (!data) return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white p-10 text-center">
+                <div className="h-screen flex flex-col items-center justify-center bg-white p-10">
                     <img src="WPSLogo.jpg" className="w-20 h-20 animate-pulse mb-4" />
-                    <h2 className="text-wps-deep font-black uppercase tracking-widest text-sm">Downloading Data</h2>
-                    <p className="text-slate-400 text-[10px] mt-2 leading-relaxed">Please wait while we sync the latest schedules from Google Sheets...</p>
+                    <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Connecting to Sheets...</p>
                 </div>
             );
 
@@ -130,31 +110,36 @@
                     {/* Header */}
                     <div className="bg-wps-deep p-5 text-white shadow-xl relative z-10">
                         <div className="flex justify-between items-start mb-6">
-                            <div className="flex items-center gap-3 cursor-pointer" onClick={syncData}>
+                            <div className="flex items-center gap-3 cursor-pointer active:scale-95 transition-transform" onClick={syncData}>
                                 <img src="WPSLogo.jpg" className={`w-12 h-12 bg-white rounded-xl p-1 shadow-inner ${isSyncing ? 'animate-spin' : ''}`} />
                                 <div>
                                     <h1 className="text-xl font-black uppercase tracking-tighter leading-none">WPS Hub</h1>
                                     <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">
-                                        {isSyncing ? 'Updating...' : 'Staff Portal'}
+                                        {isSyncing ? 'Syncing...' : 'Staff Portal'}
                                     </p>
                                 </div>
                             </div>
                             <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 text-center min-w-[70px]">
                                 <p className="text-[8px] font-black uppercase opacity-60 mb-1">Cycle Day</p>
-                                <p className="text-2xl font-black text-wps-bright leading-none">{currentCycleDay}</p>
+                                <p className="text-2xl font-black text-wps-bright leading-none">{cycleDay}</p>
                             </div>
                         </div>
 
+                        {/* Day Selector */}
                         <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl shadow-inner">
                             {["1", "2", "3", "4", "5"].map(d => (
-                                <button key={d} onClick={() => setSelectedDay(d)} className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${selectedDay === d ? "bg-white text-wps-deep shadow-lg scale-105" : "text-white/40 hover:text-white/60"}`}>
+                                <button 
+                                    key={d} 
+                                    onClick={() => setSelectedDay(d)} 
+                                    className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${selectedDay === d ? "bg-white text-wps-deep shadow-lg scale-105" : "text-white/40"}`}
+                                >
                                     D{d}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Main Content */}
+                    {/* Main List */}
                     <div className="p-4 flex-grow space-y-4">
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
@@ -162,21 +147,26 @@
                                 <select 
                                     value={selectedSheetId} 
                                     onChange={e => setSelectedSheetId(e.target.value)}
-                                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none transition-all appearance-none relative z-10"
+                                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none transition-all appearance-none"
                                 >
                                     {sheetIds.map(id => (
                                         <option key={id} value={id}>{id === "PREPS" ? "PREPS (All Staff)" : (data[id].displayName || id)}</option>
                                     ))}
                                 </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 z-0 opacity-30">
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
                                     <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
                                 </div>
                             </div>
+                            {data[selectedSheetId]?.assignment && (
+                                <div className="mt-3 inline-block px-3 py-1 bg-wps-deep/5 text-wps-deep rounded-full text-[10px] font-black uppercase tracking-tight">
+                                    {selectedSheetId === "PREPS" ? "Reference Schedule" : data[selectedSheetId].assignment}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-3 pb-8">
                             {schedule.length > 0 ? schedule.map((subject, i) => {
-                                const isFree = !selectedSheetId.includes("PREPS") && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
+                                const isFree = selectedSheetId !== "PREPS" && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
                                 return (
                                     <div key={i} className={`flex items-center p-4 rounded-3xl border-2 transition-all ${isFree ? 'bg-slate-100/50 border-transparent opacity-40 scale-[0.98]' : 'bg-white border-white shadow-sm'}`}>
                                         <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 mr-4 ${isFree ? 'bg-slate-200 text-slate-400' : 'bg-wps-deep text-white shadow-md shadow-wps-deep/10'}`}>
@@ -191,13 +181,13 @@
                                     </div>
                                 );
                             }) : (
-                                <div className="text-center py-20 opacity-20 italic font-medium">No periods found for Day {selectedDay}</div>
+                                <div className="text-center py-20 opacity-20 italic font-medium">No schedule data for Day {selectedDay}</div>
                             )}
                         </div>
                     </div>
-
-                    <footer className="py-8 text-center" onClick={syncData}>
-                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.5em]">Winchester PS Portal</p>
+                    
+                    <footer className="py-6 text-center opacity-30 cursor-pointer" onClick={syncData}>
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.5em]">Winchester Public School</p>
                     </footer>
                 </div>
             );
@@ -208,4 +198,3 @@
     </script>
 </body>
 </html>
-
