@@ -51,7 +51,8 @@
         const { useState, useEffect, useMemo } = React;
 
         const API_URL = "https://script.google.com/macros/s/AKfycbx4RpGMEY7quXqwWd6SNf6Bu3hCTNPm5BmHt_PMidb3STiZMmBwafWOC2XcmHuHd_6p/exec"; 
-        const STORAGE_KEY = "wps_v12_final_deploy"; 
+        // Updated storage key to force a fresh data sync with the new cosmetic changes
+        const STORAGE_KEY = "wps_v14_final_cosmetic_fix"; 
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -192,8 +193,12 @@
                         {/* List */}
                         <div className="space-y-3">
                             {periods.map((pNum, i) => {
-                                const subject = currentSchedule[i] || "";
-                                const isFree = selectedSheetId !== "PREPS" && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
+                                const rawSubject = currentSchedule[i] || "";
+                                // Explicitly check for "Free Period" which is what your api.gs sends for empty cells
+                                const isEmpty = !rawSubject || rawSubject === "Free Period";
+                                const subjectDisplay = isEmpty ? "Unknown, but probably something awesome" : rawSubject;
+                                
+                                const isFree = selectedSheetId !== "PREPS" && (isEmpty || subjectDisplay.toLowerCase().includes("prep") || subjectDisplay.toLowerCase().includes("free"));
                                 
                                 return (
                                     <div key={pNum} className={`flex items-center p-4 rounded-3xl border-2 transition-all ${isFree ? 'bg-slate-100/40 border-transparent opacity-50 grayscale' : 'bg-white border-white shadow-sm'}`}>
@@ -203,7 +208,7 @@
                                         <div className="overflow-hidden">
                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {pNum}</p>
                                             <h4 className={`font-bold text-base leading-tight truncate ${isFree ? 'italic text-slate-500' : 'text-wps-deep'}`}>
-                                                {subject || "Unassigned"}
+                                                {subjectDisplay}
                                             </h4>
                                         </div>
                                     </div>
