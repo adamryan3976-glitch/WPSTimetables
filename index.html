@@ -10,6 +10,7 @@
     <link rel="apple-touch-icon" href="WPSLogo.jpg">
     <link rel="icon" type="image/jpeg" href="WPSLogo.jpg">
 
+    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -19,7 +20,13 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { wps: { deep: '#005496', bright: '#00D1FF', slate: '#53565A' } }
+                    colors: { 
+                        wps: { 
+                            deep: '#005496', 
+                            bright: '#00D1FF', 
+                            slate: '#53565A' 
+                        } 
+                    }
                 }
             }
         }
@@ -27,7 +34,12 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-tap-highlight-color: transparent; 
+            overflow-x: hidden; 
+        }
         .no-select { -webkit-user-select: none; user-select: none; }
         select { font-size: 16px !important; } 
     </style>
@@ -38,9 +50,8 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // UPDATED WEB APP URL
-        const API_URL = "https://script.google.com/macros/s/AKfycbzdU5iTRPSXGMLzynEZWMFh1_DLhG7_Rt2-5X8E4rbt4ocNpRABT_O4hhq9e5DYS7mA/exec";
-        const STORAGE_KEY = "wps_v11_b3_f12_final"; 
+        const API_URL = "https://script.google.com/macros/s/AKfycbx4RpGMEY7quXqwWd6SNf6Bu3hCTNPm5BmHt_PMidb3STiZMmBwafWOC2XcmHuHd_6p/exec"; 
+        const STORAGE_KEY = "wps_v12_final_deploy"; 
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -51,19 +62,14 @@
             const [selectedDay, setSelectedDay] = useState("1");
             const [isSyncing, setIsSyncing] = useState(false);
 
+            // Cycle Day Logic: Handle both clean numbers and potential timestamps
             const cycleDay = useMemo(() => {
-                if (!data) return "N/A";
-                const val = data.currentCycleDay;
-                return (val !== undefined && val !== null && val !== "") ? val.toString() : "N/A";
+                if (!data || !data.currentCycleDay) return "N/A";
+                const val = data.currentCycleDay.toString().trim();
+                return val.length > 2 ? val.charAt(0) : val;
             }, [data]);
 
-            useEffect(() => {
-                const day = cycleDay?.trim();
-                if (day && ["1", "2", "3", "4", "5"].includes(day)) {
-                    setSelectedDay(day);
-                }
-            }, [cycleDay]);
-
+            // Sync logic
             const syncData = async () => {
                 setIsSyncing(true);
                 try {
@@ -71,7 +77,6 @@
                     const json = await res.json();
                     setData(json);
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
-                    console.log("Sync Complete:", json);
                 } catch (e) {
                     console.error("Sync failed", e);
                 } finally {
@@ -80,6 +85,14 @@
             };
 
             useEffect(() => { syncData(); }, []);
+
+            // Auto-select day based on Cycle Day
+            useEffect(() => {
+                const day = cycleDay?.charAt(0);
+                if (day && ["1", "2", "3", "4", "5"].includes(day)) {
+                    setSelectedDay(day);
+                }
+            }, [cycleDay]);
 
             const staffList = useMemo(() => {
                 if (!data) return [];
@@ -106,17 +119,16 @@
             if (!data) return (
                 <div className="h-screen flex flex-col items-center justify-center bg-white p-10 text-center">
                     <img src="WPSLogo.jpg" className="w-20 h-20 animate-pulse mb-6" onerror="this.src='https://via.placeholder.com/80?text=WPS'"/>
-                    <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Connecting to Sheets...</p>
+                    <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Connecting...</p>
                 </div>
             );
 
-            // Row range 3-12 provides exactly 10 periods
             const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
             const currentStaff = data[selectedSheetId];
             const currentSchedule = currentStaff?.schedule?.[selectedDay] || [];
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select">
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select pb-20">
                     {/* Header */}
                     <div className="bg-wps-deep p-5 text-white shadow-xl relative z-10">
                         <div className="flex justify-between items-start mb-6">
@@ -148,8 +160,8 @@
                         </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="p-4 flex-grow space-y-4">
+                    {/* Selector */}
+                    <div className="p-4 space-y-4">
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
                             <div className="relative">
@@ -159,9 +171,7 @@
                                     className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none appearance-none"
                                 >
                                     {staffList.map(staff => (
-                                        <option key={staff.id} value={staff.id}>
-                                            {staff.displayName}
-                                        </option>
+                                        <option key={staff.id} value={staff.id}>{staff.displayName}</option>
                                     ))}
                                 </select>
                                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
@@ -179,8 +189,8 @@
                             )}
                         </div>
 
-                        {/* Schedule List */}
-                        <div className="space-y-3 pb-24">
+                        {/* List */}
+                        <div className="space-y-3">
                             {periods.map((pNum, i) => {
                                 const subject = currentSchedule[i] || "";
                                 const isFree = selectedSheetId !== "PREPS" && (!subject || subject.toLowerCase().includes("prep") || subject.toLowerCase().includes("free"));
