@@ -51,8 +51,7 @@
         const { useState, useEffect, useMemo } = React;
 
         const API_URL = "https://script.google.com/macros/s/AKfycbx4RpGMEY7quXqwWd6SNf6Bu3hCTNPm5BmHt_PMidb3STiZMmBwafWOC2XcmHuHd_6p/exec"; 
-        // Updated storage key to force a fresh data sync with the new cosmetic changes
-        const STORAGE_KEY = "wps_v14_final_cosmetic_fix"; 
+        const STORAGE_KEY = "wps_v15_font_size_tweak"; 
 
         const App = () => {
             const [data, setData] = useState(() => {
@@ -63,14 +62,12 @@
             const [selectedDay, setSelectedDay] = useState("1");
             const [isSyncing, setIsSyncing] = useState(false);
 
-            // Cycle Day Logic: Handle both clean numbers and potential timestamps
             const cycleDay = useMemo(() => {
                 if (!data || !data.currentCycleDay) return "N/A";
                 const val = data.currentCycleDay.toString().trim();
                 return val.length > 2 ? val.charAt(0) : val;
             }, [data]);
 
-            // Sync logic
             const syncData = async () => {
                 setIsSyncing(true);
                 try {
@@ -87,7 +84,6 @@
 
             useEffect(() => { syncData(); }, []);
 
-            // Auto-select day based on Cycle Day
             useEffect(() => {
                 const day = cycleDay?.charAt(0);
                 if (day && ["1", "2", "3", "4", "5"].includes(day)) {
@@ -130,7 +126,6 @@
 
             return (
                 <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select pb-20">
-                    {/* Header */}
                     <div className="bg-wps-deep p-5 text-white shadow-xl relative z-10">
                         <div className="flex justify-between items-start mb-6">
                             <div className="flex items-center gap-3 cursor-pointer" onClick={syncData}>
@@ -161,7 +156,6 @@
                         </div>
                     </div>
 
-                    {/* Selector */}
                     <div className="p-4 space-y-4">
                         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
@@ -190,11 +184,9 @@
                             )}
                         </div>
 
-                        {/* List */}
                         <div className="space-y-3">
                             {periods.map((pNum, i) => {
                                 const rawSubject = currentSchedule[i] || "";
-                                // Explicitly check for "Free Period" which is what your api.gs sends for empty cells
                                 const isEmpty = !rawSubject || rawSubject === "Free Period";
                                 const subjectDisplay = isEmpty ? "Unknown, but probably something awesome" : rawSubject;
                                 
@@ -207,7 +199,7 @@
                                         </div>
                                         <div className="overflow-hidden">
                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {pNum}</p>
-                                            <h4 className={`font-bold text-base leading-tight truncate ${isFree ? 'italic text-slate-500' : 'text-wps-deep'}`}>
+                                            <h4 className={`font-bold leading-tight truncate ${isEmpty ? 'text-xs italic' : 'text-base'} ${isFree ? 'text-slate-500' : 'text-wps-deep'}`}>
                                                 {subjectDisplay}
                                             </h4>
                                         </div>
