@@ -2,269 +2,230 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>WPS Staff Portal | Winchester Public School</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WPS Portal</title>
     
-    <!-- Favicon and Apple Home Screen Icon -->
-    <link rel="icon" type="image/png" href="WPS Logo RBG.png">
-    <link rel="apple-touch-icon" href="WPS Logo RBG.png">
-    
-    <!-- PWA / Mobile Web App Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="WPS Staff">
-    
+    <link rel="apple-touch-icon" href="WPSLogo.jpg">
+    <link rel="icon" type="image/jpeg" href="WPSLogo.jpg">
+
+    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --wps-blue: #0077b6;
-            --wps-gold: #d4a373;
-            --wps-dark: #2b2d42;
-            --wps-gray: #8d99ae;
-            --wps-parchment: #fefae0;
-        }
-
-        body {
-            background-color: #f8f9fa;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
-            padding-left: env(safe-area-inset-left);
-            padding-right: env(safe-area-inset-right);
-        }
-
-        .knight-gradient {
-            background: linear-gradient(135deg, #1a1c2c 0%, #4a4e69 100%);
-        }
-
-        .app-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border-bottom: 4px solid transparent;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        .app-card:active {
-            transform: scale(0.98);
-            background-color: #f1f5f9;
-        }
-
-        @media (min-width: 1024px) {
-            .app-card:hover {
-                transform: translateY(-8px);
-                border-bottom-color: var(--wps-blue);
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 
+                        wps: { 
+                            deep: '#005496', 
+                            bright: '#00D1FF', 
+                            slate: '#53565A' 
+                        } 
+                    }
+                }
             }
         }
+    </script>
 
-        .live-indicator {
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-tap-highlight-color: transparent; 
+            overflow-x: hidden; 
         }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
+        .no-select { -webkit-user-select: none; user-select: none; }
+        select { font-size: 16px !important; } 
     </style>
 </head>
-<body class="text-slate-800 antialiased">
+<body>
+    <div id="root"></div>
 
-    <!-- Header / Nav -->
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16 items-center">
-                <div class="flex items-center gap-2 sm:gap-4">
-                    <!-- Back Button to Hub -->
-                    <a href="https://winchesterps.ca/" class="flex items-center gap-1 py-1.5 px-2 -ml-1 bg-gray-50 border border-gray-100 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all shadow-sm" title="Back to Landing Page">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M15 19l-7-7 7-7" />
-                        </svg>
-                        <span class="text-[9px] font-black tracking-tighter uppercase">Back to Hub</span>
-                    </a>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
 
-                    <div class="flex items-center gap-2 sm:gap-3">
-                        <img src="WPS Logo RBG.png" alt="WPS Logo" class="h-8 sm:h-10 w-auto">
-                        <span class="font-bold text-lg sm:text-xl tracking-tight text-slate-900 ml-1">
-                            Winchester <span class="text-blue-600">P.S.</span> Staff
-                        </span>
+        const API_URL = "https://script.google.com/macros/s/AKfycbx4RpGMEY7quXqwWd6SNf6Bu3hCTNPm5BmHt_PMidb3STiZMmBwafWOC2XcmHuHd_6p/exec"; 
+        const STORAGE_KEY = "wps_v16_layout_refinement"; 
+
+        const App = () => {
+            const [data, setData] = useState(() => {
+                const cached = localStorage.getItem(STORAGE_KEY);
+                return cached ? JSON.parse(cached) : null;
+            });
+            const [selectedSheetId, setSelectedSheetId] = useState("");
+            const [selectedDay, setSelectedDay] = useState("1");
+            const [isSyncing, setIsSyncing] = useState(false);
+
+            const cycleDay = useMemo(() => {
+                if (!data || !data.currentCycleDay) return "N/A";
+                const val = data.currentCycleDay.toString().trim();
+                return val.length > 2 ? val.charAt(0) : val;
+            }, [data]);
+
+            const syncData = async () => {
+                setIsSyncing(true);
+                try {
+                    const res = await fetch(API_URL);
+                    const json = await res.json();
+                    setData(json);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(json));
+                } catch (e) {
+                    console.error("Sync failed", e);
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            useEffect(() => { syncData(); }, []);
+
+            useEffect(() => {
+                const day = cycleDay?.charAt(0);
+                if (day && ["1", "2", "3", "4", "5"].includes(day)) {
+                    setSelectedDay(day);
+                }
+            }, [cycleDay]);
+
+            const staffList = useMemo(() => {
+                if (!data) return [];
+                const exclude = ["TEMPLATE", "MOD", "Language", "Dropdowns", "Staff", "REG", "Cycle Days", "currentCycleDay"];
+                return Object.keys(data)
+                    .filter(id => !exclude.includes(id))
+                    .map(id => ({
+                        id: id,
+                        displayName: data[id]?.displayName || id
+                    }))
+                    .sort((a, b) => {
+                        if (a.id === "PREPS") return -1;
+                        if (b.id === "PREPS") return 1;
+                        return a.displayName.localeCompare(b.displayName);
+                    });
+            }, [data]);
+
+            useEffect(() => {
+                if (staffList.length > 0 && !selectedSheetId) {
+                    setSelectedSheetId(staffList[0].id);
+                }
+            }, [staffList, selectedSheetId]);
+
+            if (!data) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-white p-10 text-center">
+                    <img src="WPSLogo.jpg" className="w-20 h-20 animate-pulse mb-6" onerror="this.src='https://via.placeholder.com/80?text=WPS'"/>
+                    <p className="text-wps-deep font-black uppercase tracking-widest text-xs">Connecting...</p>
+                </div>
+            );
+
+            const periods = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+            const currentStaff = data[selectedSheetId];
+            const currentSchedule = currentStaff?.schedule?.[selectedDay] || [];
+
+            return (
+                <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col no-select pb-20">
+                    <div className="bg-wps-deep p-5 text-white shadow-xl relative z-10">
+                        {/* Integrated Back Button */}
+                        <div className="mb-4">
+                            <a href="https://winchesterps.ca/" className="inline-flex items-center gap-1 py-1 px-2 bg-white/10 border border-white/20 rounded-lg text-white hover:bg-white/20 transition-all shadow-sm" title="Back to Landing Page">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7" />
+                                </svg>
+                                <span className="text-[8px] font-black tracking-tighter uppercase">Back to Hub</span>
+                            </a>
+                        </div>
+
+                        <div className="flex justify-between items-start mb-6">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={syncData}>
+                                <img src="WPSLogo.jpg" className={`w-12 h-12 bg-white rounded-xl p-1 shadow-inner ${isSyncing ? 'animate-spin' : ''}`} onerror="this.src='https://via.placeholder.com/48?text=W'"/>
+                                <div>
+                                    <h1 className="text-xl font-black uppercase tracking-tighter leading-none">WPS Hub</h1>
+                                    <p className="text-[10px] font-bold opacity-50 uppercase tracking-widest mt-1">
+                                        {isSyncing ? 'Refreshing...' : 'Staff Portal'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 text-center min-w-[70px]">
+                                <p className="text-[8px] font-black uppercase opacity-60 mb-1">Cycle Day</p>
+                                <p className="text-2xl font-black text-wps-bright leading-none">{cycleDay}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl shadow-inner">
+                            {["1", "2", "3", "4", "5"].map(d => (
+                                <button 
+                                    key={d} 
+                                    onClick={() => setSelectedDay(d)} 
+                                    className={`flex-1 py-3 rounded-xl text-sm font-black transition-all ${selectedDay === d ? "bg-white text-wps-deep shadow-lg scale-105" : "text-white/40 hover:text-white/60"}`}
+                                >
+                                    D{d}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
 
-                <!-- Desktop Live Display -->
-                <div id="cycle-display" class="hidden sm:flex items-center gap-3 bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200">
-                    <div class="w-2 h-2 rounded-full bg-emerald-500 live-indicator"></div>
-                    <span id="live-date" class="text-xs font-medium text-slate-600">Loading Date...</span>
-                    <span class="text-slate-300">|</span>
-                    <span id="live-cycle" class="text-xs font-bold text-blue-600 uppercase tracking-wider">Day ?</span>
-                </div>
-            </div>
-        </div>
-    </nav>
+                    <div className="p-4 space-y-4">
+                        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 ml-1">Staff Member</label>
+                            <div className="relative">
+                                <select 
+                                    value={selectedSheetId} 
+                                    onChange={e => setSelectedSheetId(e.target.value)}
+                                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 font-black text-wps-deep text-lg focus:border-wps-bright outline-none appearance-none"
+                                >
+                                    {staffList.map(staff => (
+                                        <option key={staff.id} value={staff.id}>{staff.displayName}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                                    <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>
+                                </div>
+                            </div>
+                            
+                            {currentStaff?.assignment && (
+                                <div className="mt-4 flex items-center gap-2 px-1">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-wps-bright animate-pulse"></div>
+                                    <span className="text-[10px] font-black text-wps-deep/60 uppercase tracking-wider truncate">
+                                        {currentStaff.assignment}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
 
-    <!-- Hero Section -->
-    <header class="knight-gradient text-white py-12 sm:py-16 px-6 relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -mr-24 -mt-24 blur-3xl"></div>
-        <div class="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12">
-            <div class="w-full md:w-2/3 text-center md:text-left">
-                <div class="inline-block px-4 py-1.5 mb-6 text-xs font-semibold tracking-wide uppercase bg-blue-500/20 border border-blue-400/30 rounded-full text-blue-200">
-                    Staff Resource Hub
-                </div>
-                <h1 class="text-3xl sm:text-4xl md:text-6xl font-extrabold mb-4 sm:mb-6 leading-tight">
-                    Welcome back, <br/><span class="text-blue-400">Winchester Knights.</span>
-                </h1>
-
-                <!-- Mobile Live Display -->
-                <div class="sm:hidden mb-6 flex justify-center">
-                    <div class="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-2 rounded-xl inline-flex items-center gap-3">
-                         <span id="mobile-live-date" class="text-sm font-medium text-blue-50">Loading...</span>
-                         <span class="text-white/30">|</span>
-                         <span id="mobile-live-cycle" class="text-sm font-bold text-blue-300 uppercase">Day ?</span>
+                        <div className="space-y-3">
+                            {periods.map((pNum, i) => {
+                                const rawSubject = currentSchedule[i] || "";
+                                const isEmpty = !rawSubject || rawSubject === "Free Period";
+                                const subjectDisplay = isEmpty ? "Unknown, but probably something awesome" : rawSubject;
+                                
+                                return (
+                                    <div key={pNum} className="flex items-center p-4 rounded-3xl border-2 bg-white border-white shadow-sm transition-all">
+                                        <div className="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 mr-4 bg-wps-deep text-white shadow-md shadow-wps-deep/10">
+                                            {pNum}
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Period {pNum}</p>
+                                            <h4 className={`font-bold leading-tight text-wps-deep ${isEmpty ? 'text-[11px] leading-[1.2] italic whitespace-normal' : 'text-base truncate'}`}>
+                                                {subjectDisplay}
+                                            </h4>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                 </div>
-
-                <p class="text-base sm:text-lg text-slate-300 max-w-xl mx-auto md:mx-0 px-4 md:px-0">
-                    Access all essential applications and internal tools from one secure location.
-                </p>
-            </div>
-            
-            <div class="hidden sm:flex md:w-1/3 justify-center">
-                <div class="relative group">
-                    <div class="absolute -inset-1 bg-gradient-to-r from-blue-500 to-amber-500 rounded-full blur opacity-25"></div>
-                    <div class="relative bg-slate-900 p-4 sm:p-6 rounded-3xl border border-white/10 shadow-2xl">
-                        <img src="WPS Logo RBG.png" alt="Winchester Knights Logo" class="w-32 sm:w-48 h-auto drop-shadow-2xl">
-                    </div>
+                    
+                    <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md py-4 text-center border-t border-slate-100 cursor-pointer active:opacity-50" onClick={syncData}>
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.5em]">Winchester Public School</p>
+                    </footer>
                 </div>
-            </div>
-        </div>
-    </header>
+            );
+        };
 
-    <!-- Main Content: Apps Grid -->
-    <main id="apps" class="max-w-7xl mx-auto px-6 sm:px-6 lg:px-8 py-12 sm:py-16">
-        <div class="mb-10 text-center sm:text-left">
-            <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Internal Applications</h2>
-            <p class="text-slate-500 text-sm sm:text-base">Your essential tools for daily school operations.</p>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6 sm:gap-8">
-            <!-- App 0: Class Lists -->
-            <div class="app-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
-                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner overflow-hidden">
-                    <img src="Knight Class Lists.png" alt="Class Lists Icon" class="w-16 h-16 sm:w-20 sm:h-20 object-contain">
-                </div>
-                <h3 class="text-lg sm:text-xl font-bold text-slate-900 mb-2">Class Lists</h3>
-                <p class="text-slate-500 text-sm mb-6 flex-grow">Access current student groupings and classroom assignments.</p>
-                <a href="https://class-lists.winchesterps.ca/" class="w-full py-3 bg-slate-100 hover:bg-indigo-600 active:bg-indigo-700 hover:text-white text-slate-700 font-bold rounded-xl transition-colors text-center shadow-sm">Open App</a>
-            </div>
-
-            <!-- App 1: Timetables -->
-            <div class="app-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
-                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner overflow-hidden">
-                    <img src="Knight Timetables.png" alt="Timetables Icon" class="w-16 h-16 sm:w-20 sm:h-20 object-contain">
-                </div>
-                <h3 class="text-lg sm:text-xl font-bold text-slate-900 mb-2">Timetables</h3>
-                <p class="text-slate-500 text-sm mb-6 flex-grow">View Teacher Timetables and the Prep schedule</p>
-                <a href="http://timetables.winchesterps.ca/" class="w-full py-3 bg-slate-100 hover:bg-blue-600 active:bg-blue-700 hover:text-white text-slate-700 font-bold rounded-xl transition-colors text-center shadow-sm">Open App</a>
-            </div>
-
-            <!-- App 2: CB Scanner -->
-            <div class="app-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
-                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner overflow-hidden">
-                    <img src="ScannerAppLogo.png" alt="CB Scanner Icon" class="w-16 h-16 sm:w-20 sm:h-20 object-contain">
-                </div>
-                <h3 class="text-lg sm:text-xl font-bold text-slate-900 mb-2">CB Scanner</h3>
-                <p class="text-slate-500 text-sm mb-6 flex-grow">Chromebook inventory management and rapid check-out tool.</p>
-                <a href="https://cbscanner.winchesterps.ca/" class="w-full py-3 bg-slate-100 hover:bg-amber-600 active:bg-amber-700 hover:text-white text-slate-700 font-bold rounded-xl transition-colors text-center shadow-sm">Open App</a>
-            </div>
-
-            <!-- App 3: Prep Payback -->
-            <div class="app-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
-                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner overflow-hidden">
-                    <img src="Prep Payback.png" alt="Prep Payback Icon" class="w-16 h-16 sm:w-20 sm:h-20 object-contain">
-                </div>
-                <h3 class="text-lg sm:text-xl font-bold text-slate-900 mb-2">Prep Payback</h3>
-                <p class="text-slate-500 text-sm mb-6 flex-grow">Track and manage preparation time owed and repayment status.</p>
-                <a href="https://preppayback.winchesterps.ca/" class="w-full py-3 bg-slate-100 hover:bg-emerald-600 active:bg-emerald-700 hover:text-white text-slate-700 font-bold rounded-xl transition-colors text-center shadow-sm">Open App</a>
-            </div>
-
-            <!-- App 4: Duty Schedule -->
-            <div class="app-card bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col items-center text-center">
-                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-rose-50 rounded-2xl flex items-center justify-center mb-6 shadow-inner overflow-hidden">
-                    <img src="DutyLogo.png" alt="Duty Schedule Icon" class="w-16 h-16 sm:w-20 sm:h-20 object-contain">
-                </div>
-                <h3 class="text-lg sm:text-xl font-bold text-slate-900 mb-2">Duty Schedule</h3>
-                <p class="text-slate-500 text-sm mb-6 flex-grow">Access and check the weekly staff duty rotations and locations.</p>
-                <a id="duty-link" href="http://duty.winchesterps.ca/" class="w-full py-3 bg-slate-100 hover:bg-rose-600 active:bg-rose-700 hover:text-white text-slate-700 font-bold rounded-xl transition-colors text-center shadow-sm">Open App</a>
-            </div>
-        </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-slate-900 text-slate-400 py-10 px-6 border-t border-slate-800">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
-            <div class="flex items-center gap-3">
-                <img src="WPS Logo RBG.png" alt="WPS Logo" class="h-8 sm:h-10 w-auto opacity-80">
-                <div class="text-left">
-                    <div class="text-white font-bold text-sm sm:text-base">Winchester Public School</div>
-                    <div class="text-xs">Knight Pride | Community Excellence</div>
-                </div>
-            </div>
-            <div class="text-xs sm:text-sm text-center">
-                &copy; 2024 Winchester P.S. Staff Portal.
-            </div>
-            <div class="flex gap-8 text-2xl">
-                <a href="#" class="hover:text-white transition-colors p-2"><i class="fab fa-twitter"></i></a>
-                <a href="#" class="hover:text-white transition-colors p-2"><i class="fab fa-facebook"></i></a>
-                <a href="#" class="hover:text-white transition-colors p-2"><i class="fas fa-globe"></i></a>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        /**
-         * Updated Google Apps Script Web App URL
-         */
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzGgmaua3PK6IXiljngAxcuQP0FoRxtLQ9ec6MQOSRpmFlGfIkUc_64jM_eI-G-0Wzj/exec';
-
-        async function fetchLiveStatus() {
-            if (!WEB_APP_URL || WEB_APP_URL.includes('PASTE_YOUR')) return;
-
-            try {
-                const response = await fetch(WEB_APP_URL);
-                const data = await response.json();
-                
-                const dateObj = new Date(data.date);
-                const formattedDate = isNaN(dateObj.getTime()) ? data.date : dateObj.toLocaleDateString('en-US', { 
-                    weekday: 'short', 
-                    month: 'short', 
-                    day: 'numeric' 
-                });
-
-                updateUI(formattedDate, data.cycleDay);
-            } catch (error) {
-                console.error('Error fetching data:', error);
-                updateUI(new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), 'Offline');
-            }
-        }
-
-        function updateUI(dateStr, cycle) {
-            document.getElementById('live-date').textContent = dateStr;
-            document.getElementById('live-cycle').textContent = `Day ${cycle}`;
-            document.getElementById('mobile-live-date').textContent = dateStr;
-            document.getElementById('mobile-live-cycle').textContent = `Day ${cycle}`;
-            document.getElementById('cycle-display').classList.remove('hidden');
-
-            const dutyLink = document.getElementById('duty-link');
-            if (cycle && !isNaN(cycle)) {
-                dutyLink.href = `http://duty.winchesterps.ca/?day=${cycle}`;
-                dutyLink.innerHTML = `Open Day ${cycle} Schedule`;
-            }
-        }
-
-        window.onload = fetchLiveStatus;
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
